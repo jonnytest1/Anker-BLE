@@ -85,6 +85,9 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
+      - name: Sync images from assets/
+        run: python3 scripts/sync_images.py
+
       - name: Build integration zip
         run: |
           set -euo pipefail
@@ -170,6 +173,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.tag != '' && needs.prepare.outputs.tag || github.sha }}
+
+      - name: Sync images from assets/
+        run: python3 scripts/sync_images.py
 
       - name: Build Pages site
         run: |

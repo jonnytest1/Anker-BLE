@@ -1,7 +1,8 @@
 # Brand assets
 
+Synced from `assets/images/brand/` via `scripts/sync_images.py`.
+
 Used by Home Assistant 2026.3+ via `/api/brands/integration/anker_ble/…`.
 
-HACS Downloads / update list may still show “icon not available” until HACS
-switches to the local brands proxy — that is a HACS frontend bug, not missing files.
-See: https://github.com/hacs/integration/issues/5223
+HACS Downloads may still show “icon not available” until HACS uses the local
+brands proxy — see https://github.com/hacs/integration/issues/5223

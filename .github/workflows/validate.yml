@@ -21,3 +21,10 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify image sync
+        run: python3 scripts/sync_images.py --check

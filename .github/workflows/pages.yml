@@ -10,6 +10,8 @@ on:
       - main
     paths:
       - "web/**"
+      - "assets/**"
+      - "scripts/sync_images.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -30,6 +32,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sync images from assets/
+        run: python3 scripts/sync_images.py
 
       - name: Build Pages site
         run: |

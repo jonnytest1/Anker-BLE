@@ -52,5 +52,11 @@ Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/)
 | File | Role |
 |------|------|
 | `index.html` | UI + protocol |
-| `images/` | Product art (shared with HA integration) |
+| `images/` | **Synced** from `assets/images/product/` — do not edit by hand |
 | `serve.bat` / `serve.sh` | Local static server |
+
+After changing artwork:
+
+```bash
+python3 scripts/sync_images.py
+```

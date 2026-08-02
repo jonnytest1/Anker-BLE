@@ -5,6 +5,7 @@ Unofficial reverse-engineering of Anker / Solix Bluetooth (FF09 ZX protocol), pl
 | Piece | Path | Purpose |
 |-------|------|---------|
 | Protocol docs | [`docs/`](docs/) | Frames, GATT, ECDH/AES, TLV |
+| Shared images | [`assets/images/`](assets/images/) | Product + brand art (source of truth) |
 | Python PoC | [`poc/`](poc/) | Scan, connect, confer, telemetry CLI |
 | Web Bluetooth | [`web/`](web/) | Browser-only Chrome/Edge client |
 | Home Assistant | [`custom_components/anker_ble/`](custom_components/anker_ble/) | HACS custom integration |
@@ -23,6 +24,15 @@ Full write-up: [docs/bluetooth-protocol.md](docs/bluetooth-protocol.md)
 Verified live against **Anker Prime Charger 160W (A2687)** — serial `ASHDJVV1F52301602`, GATT `8C85`.
 
 Full device catalog: [docs/bluetooth-devices.md](docs/bluetooth-devices.md)
+
+## Images
+
+Product and brand artwork live in [`assets/images/`](assets/images/). After changing files there:
+
+```bash
+python3 scripts/sync_images.py          # copy into web/ + custom_components/
+python3 scripts/sync_images.py --check  # CI drift check
+```
 
 ---
 
@@ -74,7 +84,7 @@ entity: sensor.YOUR_DEVICE_power_out
 
 More: [custom_components/anker_ble/lovelace.md](custom_components/anker_ble/lovelace.md)
 
-Brand icons live in [`custom_components/anker_ble/brand/`](custom_components/anker_ble/brand/) and show in **Settings → Devices & services**. The HACS downloads row may still show “icon not available” because of a [HACS frontend bug](https://github.com/hacs/integration/issues/5223) (CDN vs local brands proxy on HA 2026.3+).
+Brand icons live in [`assets/images/brand/`](assets/images/brand/) (synced into the integration). The HACS downloads row may still show “icon not available” because of a [HACS frontend bug](https://github.com/hacs/integration/issues/5223) (CDN vs local brands proxy on HA 2026.3+).
 
 ---
 
