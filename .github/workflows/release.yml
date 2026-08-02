@@ -28,7 +28,7 @@ jobs:
       tag: ${{ steps.meta.outputs.tag }}
       create_release: ${{ steps.meta.outputs.create_release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' && inputs.tag || github.ref }}
@@ -68,7 +68,7 @@ jobs:
     if: needs.prepare.outputs.create_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.tag }}
       - uses: home-assistant/actions/hassfest@master
@@ -81,7 +81,7 @@ jobs:
     if: needs.prepare.outputs.create_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
@@ -107,7 +107,7 @@ jobs:
     if: needs.prepare.outputs.create_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
@@ -166,7 +166,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.tag != '' && needs.prepare.outputs.tag || github.sha }}
 
