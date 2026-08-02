@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anker BLE — Web Bluetooth</title>
+    <style>
+      :root {
+        --bg0: #0f1412;
+        --bg1: #18201c;
+        --bg2: #212b26;
+        --ink: #e8f0ea;
+        --muted: #9aada1;
+        --accent: #3dcf8e;
+        --warn: #e0b35a;
+        --bad: #e07272;
+        --line: rgba(232, 240, 234, 0.12);
+        --font-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
+        --font-body: "Segoe UI", "Source Sans 3", sans-serif;
+        --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(1200px 600px at 10% -10%, #1c3a2d 0%, transparent 55%),
+          radial-gradient(900px 500px at 100% 0%, #243048 0%, transparent 50%),
+          var(--bg0);
+        color: var(--ink);
+        font-family: var(--font-body);
+      }
+      .page { width: min(960px, calc(100% - 2rem)); margin: 0 auto; padding: 2.5rem 0 3rem; }
+      .brand { margin: 0; font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.03em; color: var(--accent); }
+      .hero h1 { margin: 0.2rem 0 0.6rem; font-family: var(--font-display); font-weight: 500; font-size: clamp(1.4rem, 3vw, 1.9rem); }
+      .lede { margin: 0; max-width: 38rem; color: var(--muted); line-height: 1.45; }
+      .banner {
+        display: none;
+        margin: 1rem 0 0;
+        padding: 0.9rem 1rem;
+        border: 1px solid rgba(224, 114, 114, 0.45);
+        border-radius: 12px;
+        background: rgba(80, 20, 20, 0.45);
+        color: #f0c8c8;
+        line-height: 1.45;
+      }
+      .banner.visible { display: block; }
+      .banner code {
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+        color: #fff;
+        background: rgba(0,0,0,0.35);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+      }
+      .support { margin: 0.9rem 0 0; font-size: 0.95rem; }
+      .support[data-tone="ok"] { color: var(--accent); }
+      .support[data-tone="bad"] { color: var(--bad); }
+      .panel {
+        background: linear-gradient(180deg, var(--bg1), var(--bg2));
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 1.1rem 1.2rem 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .panel h2 {
+        margin: 0 0 0.75rem;
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+      button {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: var(--bg0);
+        color: var(--ink);
+        border-radius: 999px;
+        padding: 0.65rem 1.1rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: rgba(61, 207, 142, 0.45); }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      button.primary { background: linear-gradient(180deg, #49d999, #2aa86a); color: #062016; border-color: transparent; }
+      button.ghost { background: transparent; }
+      button.small { padding: 0.35rem 0.75rem; font-size: 0.85rem; }
+      .status { margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.9rem; }
+      .status[data-tone="ok"] { color: var(--accent); }
+      .status[data-tone="busy"] { color: var(--warn); }
+      .status[data-tone="bad"] { color: var(--bad); }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+      dl { display: grid; grid-template-columns: 7rem 1fr; gap: 0.35rem 0.75rem; margin: 0; }
+      dt { color: var(--muted); }
+      dd { margin: 0; font-family: var(--font-mono); font-size: 0.92rem; }
+      table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.9rem; }
+      th, td { text-align: left; padding: 0.35rem 0; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 500; width: 45%; }
+      .muted { color: var(--muted); }
+      .raw { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+      .raw code { font-family: var(--font-mono); font-size: 0.72rem; background: rgba(0,0,0,0.35); padding: 0.2rem 0.35rem; border-radius: 6px; }
+      .log-head { display: flex; align-items: center; justify-content: space-between; }
+      .log {
+        height: 260px; overflow: auto; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.45;
+        background: rgba(0,0,0,0.28); border-radius: 10px; padding: 0.75rem;
+      }
+      .log-line .ts { color: var(--muted); margin-right: 0.5rem; }
+      .foot { color: var(--muted); font-size: 0.9rem; }
+      .foot code { font-family: var(--font-mono); color: var(--accent); }
+      details summary { cursor: pointer; color: var(--muted); margin-top: 0.6rem; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <p class="brand">Anker BLE</p>
+        <h1>Browser client</h1>
+        <p class="lede">
+          Scan and connect with Web Bluetooth. Runs FF09 confer, then
+          subscribes for encrypted telemetry — no native app required.
+        </p>
+        <div id="file-banner" class="banner">
+          You opened this page as a local file (<code>file://</code>). Chrome blocks
+          scripts and Web Bluetooth that way. Serve it over HTTP instead:
+          <br /><br />
+          In this folder run: <code>python -m http.server 8765</code>
+          <br />
+          Then open <code>http://127.0.0.1:8765/</code>
+          <br /><br />
+          Or double-click <code>serve.bat</code> (Windows) / <code>serve.sh</code> (macOS/Linux).
+        </div>
+        <p id="support" class="support" data-tone="neutral"></p>
+      </header>
+
+      <section class="panel controls">
+        <div class="actions">
+          <button id="btn-connect" type="button" class="primary">Scan &amp; connect</button>
+          <button id="btn-connect-all" type="button" class="ghost">Pick any device</button>
+          <button id="btn-confer" type="button" disabled>Confer</button>
+          <button id="btn-subscribe" type="button" disabled>Subscribe</button>
+          <button id="btn-disconnect" type="button" class="ghost" disabled>Disconnect</button>
+        </div>
+        <p id="status" class="status" data-tone="neutral">Idle</p>
+      </section>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Identity</h2>
+          <div id="identity"></div>
+        </section>
+        <section class="panel">
+          <h2>Telemetry</h2>
+          <div id="telemetry"></div>
+        </section>
+      </div>
+
+      <section class="panel log-panel">
+        <div class="log-head">
+          <h2>Log</h2>
+          <button id="btn-clear" type="button" class="ghost small">Clear</button>
+        </div>
+        <div id="log" class="log" aria-live="polite"></div>
+      </section>
+
+      <footer class="foot">
+        <p>
+          Chrome / Edge on desktop or Android. Must be served from
+          <code>localhost</code> or HTTPS — not opened as a file.
+        </p>
+      </footer>
+    </div>
+
+    <script>
+/* Single-file classic script (no ES modules) so CORS/file:// module errors go away.
+   Web Bluetooth still requires http://127.0.0.1 or HTTPS. */
+
+const IDENTIFIER_UUID = "0000ff09-0000-1000-8000-00805f9b34fb";
+const UUID_FAMILIES = {
+  "8C85": {
+    service: "8c850001-0302-41c5-b46e-cf057c562025",
+    write: "8c850002-0302-41c5-b46e-cf057c562025",
+    notify: "8c850003-0302-41c5-b46e-cf057c562025",
+  },
+  "2215": {
+    service: "22150001-4002-81c5-b46e-cf057c562025",
+    write: "22150002-4002-81c5-b46e-cf057c562025",
+    notify: "22150003-4002-81c5-b46e-cf057c562025",
+  },
+  "2540": {
+    service: "25400001-4002-81c5-b46e-cf057c562025",
+    write: "25400002-4002-81c5-b46e-cf057c562025",
+    notify: "25400003-4002-81c5-b46e-cf057c562025",
+  },
+  "4158": {
+    service: "41580001-4002-81c5-b46e-cf057c562025",
+    write: "41580002-4002-81c5-b46e-cf057c562025",
+    notify: "41580003-4002-81c5-b46e-cf057c562025",
+  },
+};
+const OPTIONAL_SERVICES = [
+  IDENTIFIER_UUID,
+  ...Object.values(UUID_FAMILIES).flatMap((f) => [f.service, f.write, f.notify]),
+];
+
+const PRIVATE_JWK = {
+  kty: "EC",
+  crv: "P-256",
+  d: "ffvqYc2VzuScRYrXQZ6BfxremmYTbePH1Xh68UWOOfQ",
+  x: "Bg6haPIyrts3-y0SDEkYAymscqtew-uP0wovJS3F4VE",
+  y: "2rzNmx3B4ohwTKdgoNjJGOXJSCOh9gmkvwf7TDPuIZA",
+  ext: true,
+  key_ops: ["deriveBits"],
+};
+const BASE_TIMESTAMP_HEX = "42ad8c69";
+
+function hexToBytes(hex) {
+  const clean = hex.replace(/\s+/g, "").toLowerCase();
+  if (clean.length % 2) throw new Error("odd hex length");
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+function bytesToHex(bytes) {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function xorChecksum(data) {
+  let value = 0;
+  for (const b of data) value ^= b;
+  return new Uint8Array([value]);
+}
+function buildFrame(pattern, cmd, payload) {
+  const length = 2 + 2 + 3 + 2 + payload.length + 1;
+  const packet = new Uint8Array(length);
+  packet.set([0xff, 0x09], 0);
+  packet[2] = length & 0xff;
+  packet[3] = (length >> 8) & 0xff;
+  packet.set(pattern, 4);
+  packet.set(cmd, 7);
+  packet.set(payload, 9);
+  packet.set(xorChecksum(packet.subarray(0, length - 1)), length - 1);
+  return packet;
+}
+function splitFrame(packet) {
+  if (packet.length < 10) throw new Error("packet too short");
+  if (packet[0] !== 0xff || packet[1] !== 0x09) throw new Error("bad header");
+  const length = packet[2] | (packet[3] << 8);
+  if (length !== packet.length) throw new Error("length mismatch");
+  const expect = xorChecksum(packet.subarray(0, length - 1))[0];
+  if (packet[length - 1] !== expect) throw new Error("checksum mismatch");
+  return {
+    pattern: packet.subarray(4, 7),
+    cmd: packet.subarray(7, 9),
+    payload: packet.subarray(9, length - 1),
+  };
+}
+function parseTlv(payload) {
+  const data = Array.from(payload);
+  const out = {};
+  if (data[0] === 0x00) data.shift();
+  while (data.length) {
+    const id = data.shift().toString(16).padStart(2, "0");
+    if (!data.length) { out[id] = new Uint8Array(); break; }
+    const len = data.shift();
+    if (data.length < len) throw new Error("truncated TLV id=" + id);
+    out[id] = new Uint8Array(data.splice(0, len));
+  }
+  return out;
+}
+function tlvToStr(tlv) {
+  return Object.entries(tlv).map(([k, v]) => k + "=" + bytesToHex(v)).join(", ");
+}
+function asciiFromTlv(tlv, key) {
+  const raw = tlv[key];
+  if (!raw || !raw.length) return null;
+  return new TextDecoder().decode(raw).replace(/\0/g, "").trim() || null;
+}
+function identityFromTlv(tlv) {
+  const identity = {
+    product_name: asciiFromTlv(tlv, "a2"),
+    firmware: asciiFromTlv(tlv, "a3"),
+    serial: asciiFromTlv(tlv, "a4"),
+    mac_or_id: null,
+  };
+  if (tlv.a5 && tlv.a5.length >= 6) {
+    identity.mac_or_id = [...tlv.a5.subarray(0, 6)]
+      .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
+      .join(":");
+  }
+  return identity;
+}
+function leU16(data, begin) {
+  if (data.length < begin + 2) return null;
+  return data[begin] | (data[begin + 1] << 8);
+}
+function altPower(data) {
+  if (!data || data.length < 4) return null;
+  const raw = leU16(data, data.length - 2);
+  if (raw == null || raw === 0 || raw === 0xffff) return null;
+  const value = raw / 100;
+  return value > 200 ? null : value;
+}
+function padPower(data) {
+  if (!data || data.length < 8) return null;
+  const raw = leU16(data, 6);
+  return raw == null ? null : raw / 100;
+}
+function parseTelemetry(tlv) {
+  const pad1 = padPower(tlv.a2) ?? altPower(tlv.a5);
+  const pad2 = padPower(tlv.a3) ?? altPower(tlv.a6);
+  const pad3 = padPower(tlv.a4) ?? altPower(tlv.a7);
+  const powers = [pad1, pad2, pad3].filter((p) => p != null);
+  let battery = null;
+  if (tlv.bb && tlv.bb.length >= 2) battery = tlv.bb[1];
+  else if (tlv.bb && tlv.bb.length) battery = tlv.bb[0];
+  let charging = null;
+  if (tlv.a1 && tlv.a1.length) charging = tlv.a1[tlv.a1.length - 1] !== 0;
+  return {
+    pad_1_power_w: pad1,
+    pad_2_power_w: pad2,
+    pad_3_power_w: pad3,
+    power_out_w: powers.length ? Math.round(powers.reduce((a, b) => a + b, 0) * 100) / 100 : null,
+    battery_percent: battery,
+    charging,
+  };
+}
+
+const NEGOTIATION_COMMANDS = {
+  0: hexToBytes("ff0936000300010001a10442ad8c69a22462326463306231372d623735642d346162662d626136652d656337633939376332336537b9"),
+  1: hexToBytes("ff093d000300010003a10442ad8c69a22462326463306231372d623735642d346162662d626136652d656337633939376332336537a30120a40200f064"),
+  2: hexToBytes("ff0936000300010029a10442ad8c69a22462326463306231372d623735642d346162662d626136652d65633763393937633233653791"),
+  3: hexToBytes("ff0940000300010005a10443ad8c69a22462326463306231372d623735642d346162662d626136652d656337633939376332336537a30120a40200f0a50140fa"),
+  4: hexToBytes("ff094c000300010021a140060ea168f232aedb37fb2d120c49180329ac72ab5ec3eb8fd30a2f252dc5e151dabccd9b1dc1e288704ca760a0d8c918e5c94823a1f609a4bf07fb4c33ee219085"),
+  5: hexToBytes("ff095a000300014022580bc0532a53c739adf3da7b994a7b5f221bcc16bab6392c215cb4faaf41d9d58e2c81c016e474c78eed5569147cb74a1f22ca2b3fad2e209dbbcfbdaca352034a6c479f055f68581b5f1e22348809f526"),
+};
+const NEGOTIATION_REPLIES = { "0801": 1, "0803": 2, "0829": 3, "0805": 4, "0821": 5 };
+const SESSION_PATTERNS = new Set(["03000f", "03010f", "030111"]);
+const CMD_SUBSCRIBE = hexToBytes("4200");
+const SUBSCRIBE_PAYLOAD = hexToBytes("a10121");
+
+async function aesCbcEncrypt(sharedSecret, plaintext) {
+  const key = await crypto.subtle.importKey("raw", sharedSecret.subarray(0, 16), { name: "AES-CBC" }, false, ["encrypt"]);
+  const iv = sharedSecret.subarray(16, 32);
+  return new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, key, plaintext));
+}
+async function aesCbcDecrypt(sharedSecret, ciphertext) {
+  if (ciphertext.length % 16 !== 0) throw new Error("bad ciphertext length");
+  const key = await crypto.subtle.importKey("raw", sharedSecret.subarray(0, 16), { name: "AES-CBC" }, false, ["decrypt"]);
+  const iv = sharedSecret.subarray(16, 32);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-CBC", iv }, key, ciphertext));
+}
+async function ecdhSharedSecret(devicePubUncompressed) {
+  const privKey = await crypto.subtle.importKey(
+    "jwk",
+    PRIVATE_JWK,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    ["deriveBits"]
+  );
+  const pubKey = await crypto.subtle.importKey(
+    "raw",
+    devicePubUncompressed,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    []
+  );
+  return new Uint8Array(
+    await crypto.subtle.deriveBits({ name: "ECDH", public: pubKey }, privKey, 256)
+  );
+}
+function rollingTimestamp(negotiationTimestampMs) {
+  const elapsed = Math.floor((Date.now() - negotiationTimestampMs) / 1000);
+  const base = hexToBytes(BASE_TIMESTAMP_HEX);
+  const baseVal = base[0] | (base[1] << 8) | (base[2] << 16) | (base[3] << 24);
+  const next = (baseVal + elapsed) >>> 0;
+  return new Uint8Array([next & 0xff, (next >> 8) & 0xff, (next >> 16) & 0xff, (next >> 24) & 0xff]);
+}
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+class AnkerWebBleClient {
+  constructor({ log = console.log } = {}) {
+    this.log = log;
+    this.device = null;
+    this.server = null;
+    this.writeChar = null;
+    this.notifyChar = null;
+    this.family = null;
+    this.sharedSecret = null;
+    this.negotiationTs = null;
+    this.identity = null;
+    this.telemetry = null;
+    this.telemetryCmd = null;
+    this._notifyHandler = null;
+    this._waiters = [];
+  }
+
+  async requestAndConnect({ acceptAll = false } = {}) {
+    if (!navigator.bluetooth) throw new Error("Web Bluetooth not available in this browser");
+    this.log(acceptAll ? "Requesting any Bluetooth device…" : "Requesting device (FF09 filter)…");
+    const options = acceptAll
+      ? { acceptAllDevices: true, optionalServices: OPTIONAL_SERVICES }
+      : { filters: [{ services: [IDENTIFIER_UUID] }], optionalServices: OPTIONAL_SERVICES };
+    this.device = await navigator.bluetooth.requestDevice(options);
+    this.device.addEventListener("gattserverdisconnected", () => {
+      this.log("Disconnected");
+      this.sharedSecret = null;
+    });
+    this.log("Connecting to " + (this.device.name || "(unnamed)") + "…");
+    this.server = await this.device.gatt.connect();
+    await this._resolveCharacteristics();
+    this.log("GATT ready family=" + this.family);
+  }
+
+  async _resolveCharacteristics() {
+    const services = await this.server.getPrimaryServices();
+    const serviceUuids = services.map((s) => s.uuid.toLowerCase());
+    for (const [name, uuids] of Object.entries(UUID_FAMILIES)) {
+      if (serviceUuids.includes(uuids.service.toLowerCase())) {
+        this.family = name;
+        const service = await this.server.getPrimaryService(uuids.service);
+        this.writeChar = await service.getCharacteristic(uuids.write);
+        this.notifyChar = await service.getCharacteristic(uuids.notify);
+        return;
+      }
+    }
+    for (const service of services) {
+      const chars = await service.getCharacteristics();
+      const write = chars.find((c) => c.properties.write || c.properties.writeWithoutResponse);
+      const notify = chars.find((c) => c.properties.notify || c.properties.indicate);
+      if (write && notify) {
+        this.family = "unknown";
+        this.writeChar = write;
+        this.notifyChar = notify;
+        return;
+      }
+    }
+    throw new Error("Could not find Anker write/notify characteristics");
+  }
+
+  async startNotifications() {
+    if (this._notifyHandler) return;
+    this._notifyHandler = (event) => {
+      this._onNotify(new Uint8Array(event.target.value.buffer));
+    };
+    this.notifyChar.addEventListener("characteristicvaluechanged", this._notifyHandler);
+    await this.notifyChar.startNotifications();
+    this.log("Subscribed to notifications");
+  }
+
+  _onNotify(packet) {
+    this.log("notify " + packet.length + "B " + bytesToHex(packet).slice(0, 64) + "…");
+    if (packet[0] !== 0xff || packet[1] !== 0x09) return;
+    let frame;
+    try { frame = splitFrame(packet); }
+    catch (err) { this.log("parse error: " + err.message); return; }
+    const pattern = bytesToHex(frame.pattern);
+    const cmd = bytesToHex(frame.cmd);
+    this.log("frame pattern=" + pattern + " cmd=" + cmd);
+    if (SESSION_PATTERNS.has(pattern) && this.sharedSecret) {
+      this._tryDecryptTelemetry(cmd, frame.payload);
+    }
+    for (const waiter of [...this._waiters]) waiter(frame);
+  }
+
+  async _tryDecryptTelemetry(cmd, payload) {
+    const candidates = [payload];
+    if (payload.length && (payload.length - 1) % 16 === 0) candidates.push(payload.subarray(1));
+    for (const body of candidates) {
+      try {
+        const plain = await aesCbcDecrypt(this.sharedSecret, body);
+        const tlv = parseTlv(plain);
+        this.telemetry = tlv;
+        this.telemetryCmd = cmd;
+        this.log("telemetry cmd=" + cmd + " " + tlvToStr(tlv));
+        return;
+      } catch (_) { /* next */ }
+    }
+  }
+
+  waitForFrame(predicate, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._waiters = this._waiters.filter((w) => w !== handler);
+        reject(new Error("timeout waiting for frame"));
+      }, timeoutMs);
+      const handler = (frame) => {
+        if (!predicate(frame)) return;
+        clearTimeout(timer);
+        this._waiters = this._waiters.filter((w) => w !== handler);
+        resolve(frame);
+      };
+      this._waiters.push(handler);
+    });
+  }
+
+  async writeRaw(data) {
+    if (this.writeChar.properties.writeWithoutResponse) {
+      await this.writeChar.writeValueWithoutResponse(data);
+    } else {
+      await this.writeChar.writeValueWithResponse(data);
+    }
+  }
+
+  async startConfer(timeoutMs = 60000) {
+    this.sharedSecret = null;
+    this.identity = null;
+    this.telemetry = null;
+    await this.startNotifications();
+    this.log("Starting confer (stage 0)");
+    await this.writeRaw(NEGOTIATION_COMMANDS[0]);
+    const deadline = Date.now() + timeoutMs;
+    let lastKick = Date.now();
+    while (Date.now() < deadline) {
+      if (this.sharedSecret) {
+        await sleep(400);
+        this.log("Confer complete");
+        return true;
+      }
+      let frame;
+      try {
+        frame = await this.waitForFrame((f) => bytesToHex(f.pattern) === "030001", 2000);
+      } catch (_) {
+        if (Date.now() - lastKick > 10000 && !this.sharedSecret) {
+          this.log("Resending stage 0");
+          await this.writeRaw(NEGOTIATION_COMMANDS[0]);
+          lastKick = Date.now();
+        }
+        continue;
+      }
+      const cmd = bytesToHex(frame.cmd);
+      const stage = NEGOTIATION_REPLIES[cmd];
+      if (stage == null) { this.log("Unexpected negotiation cmd=" + cmd); continue; }
+      if (cmd === "0829") {
+        this.negotiationTs = Date.now();
+        this.identity = identityFromTlv(parseTlv(frame.payload));
+        this.log("Identity product=" + this.identity.product_name + " fw=" + this.identity.firmware);
+      }
+      if (cmd === "0821") {
+        const tlv = parseTlv(frame.payload);
+        if (!tlv.a1) throw new Error("ECDH missing a1");
+        const pub = new Uint8Array(1 + tlv.a1.length);
+        pub[0] = 0x04;
+        pub.set(tlv.a1, 1);
+        this.sharedSecret = await ecdhSharedSecret(pub);
+        this.log("ECDH ok");
+      }
+      this.log("Negotiation reply cmd=" + cmd + " -> stage " + stage);
+      await this.writeRaw(NEGOTIATION_COMMANDS[stage]);
+    }
+    throw new Error("Confer timed out");
+  }
+
+  async sendCommand(cmd, payload) {
+    if (!this.sharedSecret) throw new Error("not negotiated");
+    if (!this.negotiationTs) this.negotiationTs = Date.now();
+    const stamped = new Uint8Array(payload.length + 3 + 4);
+    stamped.set(payload, 0);
+    stamped.set(hexToBytes("fe0503"), payload.length);
+    stamped.set(rollingTimestamp(this.negotiationTs), payload.length + 3);
+    const encrypted = await aesCbcEncrypt(this.sharedSecret, stamped);
+    await this.writeRaw(buildFrame(hexToBytes("03000f"), cmd, encrypted));
+  }
+
+  async subscribeTelemetry() {
+    this.log("Sending telemetry subscribe (4200)");
+    await this.sendCommand(CMD_SUBSCRIBE, SUBSCRIBE_PAYLOAD);
+  }
+
+  async disconnect() {
+    if (this.device && this.device.gatt && this.device.gatt.connected) this.device.gatt.disconnect();
+    this.sharedSecret = null;
+    this._notifyHandler = null;
+  }
+}
+
+/* ---------- UI ---------- */
+const $ = (id) => document.getElementById(id);
+const ui = {
+  status: $("status"),
+  log: $("log"),
+  btnConnect: $("btn-connect"),
+  btnConnectAll: $("btn-connect-all"),
+  btnConfer: $("btn-confer"),
+  btnSubscribe: $("btn-subscribe"),
+  btnDisconnect: $("btn-disconnect"),
+  identity: $("identity"),
+  telemetry: $("telemetry"),
+  support: $("support"),
+  banner: $("file-banner"),
+};
+let client = null;
+
+function setStatus(text, tone) {
+  ui.status.textContent = text;
+  ui.status.dataset.tone = tone || "neutral";
+}
+function escapeHtml(s) {
+  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+function log(msg) {
+  const line = document.createElement("div");
+  line.className = "log-line";
+  line.innerHTML = '<span class="ts">' + new Date().toLocaleTimeString() + "</span> " + escapeHtml(msg);
+  ui.log.appendChild(line);
+  ui.log.scrollTop = ui.log.scrollHeight;
+}
+function renderIdentity(identity) {
+  if (!identity) { ui.identity.innerHTML = "<p class='muted'>No identity yet</p>"; return; }
+  ui.identity.innerHTML =
+    "<dl><dt>Product</dt><dd>" + escapeHtml(identity.product_name || "—") +
+    "</dd><dt>Firmware</dt><dd>" + escapeHtml(identity.firmware || "—") +
+    "</dd><dt>Serial</dt><dd>" + escapeHtml(identity.serial || "—") +
+    "</dd><dt>MAC</dt><dd>" + escapeHtml(identity.mac_or_id || "—") + "</dd></dl>";
+}
+function renderTelemetry(tlv, cmd) {
+  if (!tlv) { ui.telemetry.innerHTML = "<p class='muted'>No telemetry yet</p>"; return; }
+  const parsed = parseTelemetry(tlv);
+  const rows = Object.entries(parsed)
+    .map(([k, v]) => "<tr><th>" + escapeHtml(k) + "</th><td>" + escapeHtml(v == null ? "—" : String(v)) + "</td></tr>")
+    .join("");
+  const raw = Object.entries(tlv).map(([k, v]) => "<code>" + k + "=" + bytesToHex(v) + "</code>").join(" ");
+  ui.telemetry.innerHTML =
+    "<p class='muted'>cmd " + escapeHtml(cmd || "?") + "</p><table>" + rows +
+    "</table><details><summary>Raw TLV</summary><div class='raw'>" + raw + "</div></details>";
+}
+function setConnected(connected, negotiated) {
+  ui.btnConnect.disabled = connected;
+  ui.btnConnectAll.disabled = connected;
+  ui.btnConfer.disabled = !connected || negotiated;
+  ui.btnSubscribe.disabled = !negotiated;
+  ui.btnDisconnect.disabled = !connected;
+}
+function isFileOrigin() {
+  return location.protocol === "file:";
+}
+function checkSupport() {
+  if (isFileOrigin()) {
+    ui.banner.classList.add("visible");
+    ui.support.textContent = "Blocked: open via http://127.0.0.1 (not file://)";
+    ui.support.dataset.tone = "bad";
+    ui.btnConnect.disabled = true;
+    ui.btnConnectAll.disabled = true;
+    return;
+  }
+  const ok = !!navigator.bluetooth;
+  ui.support.textContent = ok
+    ? "Web Bluetooth available"
+    : "Web Bluetooth unavailable — use Chrome/Edge on desktop or Android (HTTPS or localhost)";
+  ui.support.dataset.tone = ok ? "ok" : "bad";
+  ui.btnConnect.disabled = !ok;
+  ui.btnConnectAll.disabled = !ok;
+}
+
+async function runConfer() {
+  if (!client) return;
+  try {
+    setStatus("Negotiating session…", "busy");
+    ui.btnConfer.disabled = true;
+    await client.startConfer();
+    renderIdentity(client.identity);
+    setConnected(true, true);
+    setStatus("Session ready", "ok");
+    await client.subscribeTelemetry();
+    setStatus("Subscribed — waiting for telemetry…", "ok");
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (client && client.telemetry) {
+        renderTelemetry(client.telemetry, client.telemetryCmd);
+        setStatus("Telemetry received", "ok");
+      }
+      if (!client || Date.now() - started > 15000) clearInterval(timer);
+    }, 400);
+  } catch (err) {
+    log("Confer error: " + (err.message || err));
+    setStatus("Confer failed", "bad");
+    setConnected(!!(client && client.server && client.server.connected), false);
+  }
+}
+
+async function connectFlow(acceptAll) {
+  if (isFileOrigin()) {
+    setStatus("Serve over HTTP first — see banner above", "bad");
+    return;
+  }
+  try {
+    setStatus("Connecting…", "busy");
+    client = new AnkerWebBleClient({ log });
+    await client.requestAndConnect({ acceptAll });
+    setConnected(true, false);
+    setStatus("Connected: " + (client.device.name || "device"), "ok");
+    await runConfer();
+  } catch (err) {
+    log("Error: " + (err.message || err));
+    setStatus("Connect failed", "bad");
+    setConnected(false);
+  }
+}
+
+ui.btnConnect.addEventListener("click", () => connectFlow(false));
+ui.btnConnectAll.addEventListener("click", () => connectFlow(true));
+ui.btnConfer.addEventListener("click", () => runConfer());
+ui.btnSubscribe.addEventListener("click", async () => {
+  try {
+    await client.subscribeTelemetry();
+    setStatus("Subscribe sent", "ok");
+  } catch (err) {
+    log("Subscribe error: " + (err.message || err));
+  }
+});
+ui.btnDisconnect.addEventListener("click", async () => {
+  try { await client && client.disconnect(); }
+  finally {
+    client = null;
+    setConnected(false);
+    setStatus("Disconnected");
+  }
+});
+$("btn-clear").addEventListener("click", () => { ui.log.innerHTML = ""; });
+
+checkSupport();
+setConnected(false);
+renderIdentity(null);
+renderTelemetry(null);
+setStatus("Idle");
+    </script>
+  </body>
+</html>

@@ -44,6 +44,16 @@ A device is listed if advertising matches any of:
 - Known GATT family service UUIDs (`8C85`, `2215`, `2540`, `4158`)
 - Name hints (`Anker`, `Solix`, `A17…`, `C1000`, …)
 
+## Verified on this host
+
+Against a nearby `FF09` device (`ASHDJVV1F52301602` / family `8C85`):
+
+- Scan detects via `0000ff09-…`
+- GATT resolves to `8c850001/0002/0003`
+- Full ECDH confer completes (`Confer: SUCCESS`)
+
+Telemetry listen may be quiet until encrypted command subscriptions are sent (out of scope for this PoC).
+
 ## Notes
 
 - Confer uses the fixed client ECDH key material documented for the FF09 ZX path (same as community SolixBLE).

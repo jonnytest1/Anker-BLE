@@ -1,0 +1,197 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release (e.g. v0.1.0). Leave empty to deploy Pages only."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      create_release: ${{ steps.meta.outputs.create_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' && inputs.tag || github.ref }}
+
+      - name: Resolve version
+        id: meta
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG=""
+          fi
+
+          if [ -n "$TAG" ]; then
+            VERSION="${TAG#v}"
+            MANIFEST_VERSION="$(python3 -c "import json; print(json.load(open('custom_components/anker_ble/manifest.json'))['version'])")"
+            if [ "$VERSION" != "$MANIFEST_VERSION" ]; then
+              echo "::error::Tag version '$VERSION' does not match manifest.json version '$MANIFEST_VERSION'"
+              exit 1
+            fi
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "Releasing $TAG (manifest $MANIFEST_VERSION)"
+          else
+            echo "create_release=false" >> "$GITHUB_OUTPUT"
+            echo "version=main" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "Pages-only deploy (no release)"
+          fi
+
+  validate:
+    needs: prepare
+    if: needs.prepare.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - uses: home-assistant/actions/hassfest@master
+      - uses: hacs/action@main
+        with:
+          category: integration
+
+  package:
+    needs: prepare
+    if: needs.prepare.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Build integration zip
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.prepare.outputs.version }}"
+          mkdir -p dist
+          # HACS-style: zip contains the anker_ble/ folder
+          (cd custom_components && zip -r "../dist/anker_ble-${VERSION}.zip" anker_ble \
+            -x '*/__pycache__/*' '*.pyc')
+          # Also ship the self-contained web client
+          (cd web && zip -r "../dist/anker-ble-web-${VERSION}.zip" index.html README.md serve.bat serve.sh)
+          ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: dist/*
+
+  release:
+    needs: [prepare, validate, package]
+    if: needs.prepare.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: dist
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.prepare.outputs.tag }}"
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          {
+            echo "## Anker BLE ${{ needs.prepare.outputs.version }}"
+            echo
+            echo "- Home Assistant integration: \`anker_ble-${{ needs.prepare.outputs.version }}.zip\`"
+            echo "- Web Bluetooth client: \`anker-ble-web-${{ needs.prepare.outputs.version }}.zip\`"
+            echo "- Live client (GitHub Pages): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            echo
+            if [ -n "$PREV" ]; then
+              echo "### Changes since \`$PREV\`"
+              echo
+              git log --pretty=format:'- %s (%h)' "${PREV}..${TAG}"
+              echo
+            else
+              echo "### Commits"
+              echo
+              git log --pretty=format:'- %s (%h)' -n 30 "${TAG}"
+              echo
+            fi
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Anker BLE ${{ needs.prepare.outputs.version }}
+          body_path: release-notes.md
+          files: |
+            dist/anker_ble-${{ needs.prepare.outputs.version }}.zip
+            dist/anker-ble-web-${{ needs.prepare.outputs.version }}.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+
+  pages:
+    needs: prepare
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag != '' && needs.prepare.outputs.tag || github.sha }}
+
+      - name: Build Pages site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp web/index.html _site/index.html
+          VERSION="${{ needs.prepare.outputs.version }}"
+          REPO="${{ github.repository }}"
+          cat > _site/version.json <<EOF
+          {"version":"${VERSION}","repository":"${REPO}","built_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+          EOF
+          # Small landing note linked from README for local downloads
+          cat > _site/README.txt <<EOF
+          Anker BLE Web Bluetooth client
+          Version: ${VERSION}
+          Repository: https://github.com/${REPO}
+          EOF
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

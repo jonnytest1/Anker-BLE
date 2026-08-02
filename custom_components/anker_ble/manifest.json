@@ -1,0 +1,20 @@
+{
+  "domain": "anker_ble",
+  "name": "Anker BLE",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/OWNER/anker/blob/master/README.md",
+  "issue_tracker": "https://github.com/OWNER/anker/issues",
+  "iot_class": "local_polling",
+  "requirements": ["pycryptodome>=3.19.0", "cryptography>=41.0.0"],
+  "dependencies": ["bluetooth_adapters"],
+  "bluetooth": [
+    {
+      "service_uuid": "0000ff09-0000-1000-8000-00805f9b34fb"
+    },
+    {
+      "service_uuid": "8c850001-0302-41c5-b46e-cf057c562025"
+    }
+  ],
+  "version": "0.1.0"
+}

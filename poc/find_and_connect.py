@@ -127,20 +127,24 @@ async def _run_session(client: AnkerBleClient, args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Anker BLE find & connect PoC")
-    p.add_argument("-v", "--verbose", action="store_true")
-    p.add_argument(
-        "--adapter",
-        default=None,
-        help="BlueZ adapter name (e.g. hci1). Default: system default.",
-    )
 
     sub = p.add_subparsers(dest="command", required=True)
 
+    def add_common(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument("-v", "--verbose", action="store_true")
+        sp.add_argument(
+            "--adapter",
+            default=None,
+            help="BlueZ adapter name (e.g. hci1). Default: system default.",
+        )
+
     scan = sub.add_parser("scan", help="Discover supported devices")
+    add_common(scan)
     scan.add_argument("--timeout", type=float, default=8.0)
     scan.set_defaults(func=cmd_scan)
 
     conn = sub.add_parser("connect", help="Scan, then connect to a device")
+    add_common(conn)
     conn.add_argument("--timeout", type=float, default=8.0, help="Scan duration")
     conn.add_argument("--connect-timeout", type=float, default=20.0)
     conn.add_argument("--address", help="Device MAC address")

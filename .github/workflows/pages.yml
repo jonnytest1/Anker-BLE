@@ -1,0 +1,51 @@
+name: Pages
+
+# Deploy the Web Bluetooth client whenever web/ changes on the default branch.
+# Full releases (tags) also deploy via release.yml.
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Pages site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp web/index.html _site/index.html
+          VERSION="$(python3 -c "import json; print(json.load(open('custom_components/anker_ble/manifest.json'))['version'])")"
+          cat > _site/version.json <<EOF
+          {"version":"${VERSION}","repository":"${{ github.repository }}","built_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","source":"pages-workflow"}
+          EOF
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

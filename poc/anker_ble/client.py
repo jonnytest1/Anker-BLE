@@ -1,4 +1,4 @@
-"""Connect to Anker BLE devices and run FF09 ECDH confer."""
+"""Connect to Anker BLE devices: confer, subscribe, telemetry."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
@@ -26,6 +27,7 @@ from .uuids import UUID_FAMILIES, match_uuid_family, normalize_uuid
 log = logging.getLogger(__name__)
 
 PRIVATE_KEY_HEX = "7dfbea61cd95cee49c458ad7419e817f1ade9a66136de3c7d5787af1458e39f4"
+BASE_TIMESTAMP_HEX = "42ad8c69"
 
 NEGOTIATION_COMMANDS = {
     0: bytes.fromhex(
@@ -56,9 +58,31 @@ NEGOTIATION_REPLIES = {
     "0821": 5,
 }
 
+SESSION_PATTERNS = {"03000f", "03010f", "030111"}
+TELEMETRY_CMDS = {"4300", "c402", "c405", "c421", "c900", "0300"}
+CMD_SUBSCRIBE = bytes.fromhex("4200")
+SUBSCRIBE_PAYLOAD = bytes.fromhex("a10121")
+
+
+@dataclass
+class DeviceIdentity:
+    product_name: str | None = None
+    firmware: str | None = None
+    serial: str | None = None
+    mac_or_id: str | None = None
+    raw: dict[str, bytes] = field(default_factory=dict)
+
+
+@dataclass
+class SessionSnapshot:
+    identity: DeviceIdentity
+    telemetry: dict[str, bytes]
+    telemetry_cmd: str | None = None
+    notifications: int = 0
+
 
 class AnkerBleClient:
-    """Minimal connect + GATT probe + optional ECDH confer."""
+    """Connect + ECDH confer + optional MagGo/Prime-style subscribe."""
 
     def __init__(
         self,
@@ -95,6 +119,9 @@ class AnkerBleClient:
         self._frame_queue: asyncio.Queue[Frame] = asyncio.Queue()
         self._on_frame: Callable[[Frame], None] | None = None
         self._notify_started = False
+        self.identity = DeviceIdentity()
+        self.telemetry: dict[str, bytes] = {}
+        self.telemetry_cmd: str | None = None
 
     @property
     def connected(self) -> bool:
@@ -108,7 +135,6 @@ class AnkerBleClient:
         kwargs: dict = {"timeout": timeout}
         if self._adapter:
             kwargs["adapter"] = self._adapter
-
         address_or_device = self._device or self.address
         self._client = BleakClient(address_or_device, **kwargs)
         log.info("connecting to %s (%s)…", self.address, self.name)
@@ -200,7 +226,6 @@ class AnkerBleClient:
         self._notifications.append(packet)
         log.debug("notify %d bytes: %s", len(packet), packet.hex())
         if not packet.startswith(b"\xff\x09"):
-            log.info("non-FF09 notify: %s", packet.hex())
             return
         try:
             frame = split_frame(packet)
@@ -215,9 +240,33 @@ class AnkerBleClient:
         )
         if self._on_frame:
             self._on_frame(frame)
+        self._handle_session_frame(frame)
         self._frame_queue.put_nowait(frame)
 
-    async def write_raw(self, data: bytes, response: bool = True) -> None:
+    def _handle_session_frame(self, frame: Frame) -> None:
+        if frame.pattern.hex() not in SESSION_PATTERNS:
+            return
+        if not self._shared_secret:
+            return
+        cmd = frame.cmd.hex()
+        payload = frame.payload
+        candidates = [payload]
+        # Solix multi-fragment telemetry sometimes prefixes a fragment byte
+        if payload and (len(payload) - 1) % 16 == 0:
+            candidates.append(payload[1:])
+        for body in candidates:
+            try:
+                plain = self.decrypt(body)
+                params = parse_tlv(plain)
+                self.telemetry = params
+                self.telemetry_cmd = cmd
+                log.info("telemetry cmd=%s tlv=%s", cmd, tlv_to_str(params))
+                return
+            except Exception:
+                continue
+        log.debug("could not decrypt session frame cmd=%s len=%d", cmd, len(payload))
+
+    async def write_raw(self, data: bytes, response: bool = False) -> None:
         assert self._client and self.write_uuid
         await self._client.write_gatt_char(self.write_uuid, data, response=response)
         log.debug("wrote %d bytes to %s", len(data), self.write_uuid)
@@ -238,12 +287,39 @@ class AnkerBleClient:
             self._shared_secret[16:20].hex(),
         )
 
+    def _capture_identity(self, payload: bytes) -> None:
+        params = parse_tlv(payload)
+        self.identity.raw = params
+
+        def _ascii(key: str) -> str | None:
+            raw = params.get(key)
+            if not raw:
+                return None
+            try:
+                return raw.decode("ascii", errors="ignore").strip("\x00") or None
+            except Exception:
+                return None
+
+        self.identity.product_name = _ascii("a2")
+        self.identity.firmware = _ascii("a3")
+        self.identity.serial = _ascii("a4")
+        # a5 often mixes MAC bytes + SN suffix
+        if "a5" in params and len(params["a5"]) >= 6:
+            mac = params["a5"][:6]
+            self.identity.mac_or_id = ":".join(f"{b:02X}" for b in mac)
+        log.info(
+            "identity product=%r fw=%r sn=%r",
+            self.identity.product_name,
+            self.identity.firmware,
+            self.identity.serial,
+        )
+
     async def start_confer(self, timeout: float = 60.0) -> bool:
-        """Run Solix-style ECDH confer; return True if session key established."""
         if not self.connected:
             raise RuntimeError("not connected")
 
         self._shared_secret = None
+        self.telemetry = {}
         self._notifications.clear()
         while not self._frame_queue.empty():
             self._frame_queue.get_nowait()
@@ -278,14 +354,6 @@ class AnkerBleClient:
                 continue
 
             cmd = frame.cmd.hex()
-            if cmd == "4822" and self._shared_secret:
-                try:
-                    plain = self.decrypt(frame.payload)
-                    log.info("optional stage6 TLV: %s", tlv_to_str(parse_tlv(plain)))
-                except Exception:
-                    log.exception("stage6 decrypt failed")
-                continue
-
             stage = NEGOTIATION_REPLIES.get(cmd)
             if stage is None:
                 log.warning("unexpected negotiation cmd=%s", cmd)
@@ -293,6 +361,7 @@ class AnkerBleClient:
 
             if cmd == "0829":
                 self._negotiation_timestamp = time.time()
+                self._capture_identity(frame.payload)
             if cmd == "0821":
                 self._complete_ecdh(frame.payload)
 
@@ -305,10 +374,14 @@ class AnkerBleClient:
     def decrypt(self, payload: bytes) -> bytes:
         if not self._shared_secret:
             raise RuntimeError("no session key")
+        data = payload
+        # CBC length trick: if len % 16 == 15, prepend is handled by caller sometimes
+        if len(data) % 16 != 0:
+            raise ValueError(f"ciphertext length {len(data)} not multiple of 16")
         cipher = AES.new(
             self._shared_secret[:16], AES.MODE_CBC, iv=self._shared_secret[16:]
         )
-        return unpad(cipher.decrypt(payload), 16)
+        return unpad(cipher.decrypt(data), 16)
 
     def encrypt(self, payload: bytes) -> bytes:
         if not self._shared_secret:
@@ -317,6 +390,31 @@ class AnkerBleClient:
             self._shared_secret[:16], AES.MODE_CBC, iv=self._shared_secret[16:]
         )
         return cipher.encrypt(pad(payload, 16))
+
+    def _rolling_timestamp(self) -> bytes:
+        if self._negotiation_timestamp is None:
+            self._negotiation_timestamp = time.time()
+        elapsed = int(time.time() - self._negotiation_timestamp)
+        base = int.from_bytes(bytes.fromhex(BASE_TIMESTAMP_HEX), "little")
+        return (base + elapsed).to_bytes(4, "little")
+
+    async def send_command(self, cmd: bytes, payload: bytes) -> None:
+        """Send encrypted session command with rolling timestamp (Solix path)."""
+        if not self.negotiated:
+            raise RuntimeError("not negotiated")
+        stamped = payload + bytes.fromhex("fe0503") + self._rolling_timestamp()
+        encrypted = self.encrypt(stamped)
+        packet = Frame(
+            pattern=bytes.fromhex("03000f"),
+            cmd=cmd,
+            payload=encrypted,
+        ).build()
+        await self.write_raw(packet)
+
+    async def subscribe_telemetry(self) -> None:
+        """Ask MagGo/Prime-style devices to start streaming telemetry."""
+        log.info("sending telemetry subscribe (4200)")
+        await self.send_command(CMD_SUBSCRIBE, SUBSCRIBE_PAYLOAD)
 
     async def listen(self, seconds: float = 10.0) -> list[bytes]:
         if not self.connected:
@@ -328,3 +426,31 @@ class AnkerBleClient:
             pass
         await asyncio.sleep(seconds)
         return self._notifications[start_len:]
+
+    async def poll_session(
+        self,
+        *,
+        listen_seconds: float = 8.0,
+        subscribe: bool = True,
+        confer_timeout: float = 60.0,
+    ) -> SessionSnapshot:
+        """Connect → confer → optional subscribe → collect telemetry → disconnect."""
+        already = self.connected
+        if not already:
+            await self.connect()
+        try:
+            ok = await self.start_confer(timeout=confer_timeout)
+            if not ok:
+                raise RuntimeError("confer failed")
+            if subscribe:
+                await self.subscribe_telemetry()
+            await self.listen(listen_seconds)
+            return SessionSnapshot(
+                identity=self.identity,
+                telemetry=dict(self.telemetry),
+                telemetry_cmd=self.telemetry_cmd,
+                notifications=len(self._notifications),
+            )
+        finally:
+            if not already:
+                await self.disconnect()

@@ -34,7 +34,7 @@ class DiscoveredDevice:
     device: BLEDevice | None = field(default=None, repr=False)
 
     @property
-    supported(self) -> bool:
+    def supported(self) -> bool:
         return bool(self.reasons)
 
 
