@@ -72,6 +72,8 @@ entity: sensor.YOUR_DEVICE_power_out
 
 More: [custom_components/anker_ble/lovelace.md](custom_components/anker_ble/lovelace.md)
 
+Brand icons live in [`custom_components/anker_ble/brand/`](custom_components/anker_ble/brand/) and show in **Settings → Devices & services**. The HACS downloads row may still show “icon not available” because of a [HACS frontend bug](https://github.com/hacs/integration/issues/5223) (CDN vs local brands proxy on HA 2026.3+).
+
 ---
 
 ## Python PoC
