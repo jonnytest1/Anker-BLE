@@ -3,10 +3,37 @@
  * Art: /anker_ble_static/images/
  */
 (() => {
-  const CARD_VERSION = "0.2.7";
+  const CARD_VERSION = "0.2.8";
+  const DEMO_ENTITY = "sensor.anker_ble_demo_power_out";
+  const DEMO = {
+    name: "Prime Charger 160W",
+    power: "45.2",
+    ports: ["20.1", "15.0", "10.1"],
+    online: true,
+    charging: true,
+    battery: null,
+    image: "/anker_ble_static/images/a2687.png",
+    foot: "sensor.*_power_out",
+  };
 
   function deepMerge(base, extra) {
     return { ...base, ...extra };
+  }
+
+  function pickPowerEntity(hass, entities, entitiesFallback) {
+    const seen = new Set();
+    const list = [];
+    for (const e of [...(entities || []), ...(entitiesFallback || []), ...Object.keys(hass?.states || {})]) {
+      if (!e || seen.has(e)) continue;
+      seen.add(e);
+      list.push(e);
+    }
+    return (
+      list.find((e) => /_power_out$/.test(e)) ||
+      list.find((e) => /pad_\d_power$/.test(e)) ||
+      list.find((e) => e.startsWith("sensor.") && e.includes("anker")) ||
+      ""
+    );
   }
 
   class AnkerBleCard extends HTMLElement {
@@ -15,16 +42,11 @@
     }
 
     static getStubConfig(hass, entities, entitiesFallback) {
-      const list = entities || entitiesFallback || Object.keys(hass?.states || {});
-      const pick =
-        list.find((e) => /_power_out$/.test(e)) ||
-        list.find((e) => /pad_\d_power$/.test(e)) ||
-        list.find((e) => e.includes("anker_ble") && e.startsWith("sensor.")) ||
-        "";
+      const pick = pickPowerEntity(hass, entities, entitiesFallback);
       return {
         type: "custom:anker-ble-card",
-        entity: pick,
-        name: "",
+        entity: pick || DEMO_ENTITY,
+        name: pick ? "" : DEMO.name,
         show_ports: true,
         show_battery: true,
         show_status: true,
@@ -32,7 +54,7 @@
     }
 
     setConfig(config) {
-      // Do not throw while the visual editor is still empty — show a placeholder.
+      // Empty entity is OK — full demo preview is rendered instead of a placeholder.
       this._config = deepMerge(
         {
           entity: "",
@@ -189,34 +211,10 @@
       return true;
     }
 
-    _renderPlaceholder(message) {
-      if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-      this.shadowRoot.innerHTML = `
-        <style>
-          :host { display: block; }
-          ha-card {
-            padding: 1.25rem 1.35rem;
-            color: var(--primary-text-color);
-          }
-          h3 {
-            margin: 0 0 .4rem;
-            color: var(--primary-color);
-            font-size: 1rem;
-            font-weight: var(--ha-font-weight-medium, 500);
-          }
-          p {
-            margin: 0;
-            line-height: 1.4;
-            font-size: .92rem;
-            color: var(--secondary-text-color);
-          }
-          code { color: var(--primary-color); }
-        </style>
-        <ha-card>
-          <h3>Anker BLE Device</h3>
-          <p>${this._esc(message)}</p>
-        </ha-card>
-      `;
+    _isDemo(rawEntity, powerId) {
+      if (!rawEntity || rawEntity === DEMO_ENTITY) return true;
+      if (!this._hass) return true;
+      return !this._state(powerId) && !this._state(rawEntity);
     }
 
     _cardStyles() {
@@ -386,6 +384,14 @@
           border-color: var(--primary-color);
           color: var(--primary-color);
         }
+        button.refresh:disabled {
+          opacity: .55;
+          cursor: default;
+        }
+        button.refresh:disabled:hover {
+          border-color: var(--divider-color);
+          color: var(--primary-text-color);
+        }
       `;
     }
 
@@ -394,42 +400,75 @@
       if (!this.shadowRoot) this.attachShadow({ mode: "open" });
 
       const rawEntity = (this._config.entity || "").trim();
-      if (!rawEntity) {
-        this._renderPlaceholder(
-          "Pick a Power out sensor (or any Anker BLE entity) in the card settings."
-        );
-        return;
-      }
-
       const powerId = this._resolvePowerEntity(rawEntity);
-      const power = this._state(powerId);
-      const name =
-        this._config.name ||
-        power?.attributes?.friendly_name?.replace(/\s+Power out$/i, "") ||
-        this._state(this._related(powerId, "product_name"))?.state ||
-        "Anker";
-      const onlineId = this._related(powerId, "online") || this._related(rawEntity, "online");
-      const chargingId =
-        this._related(powerId, "charging") || this._related(rawEntity, "charging");
-      const batteryId =
-        this._related(powerId, "battery") || this._related(rawEntity, "battery");
-      const padIds = ["pad_1_power", "pad_2_power", "pad_3_power"].map(
-        (s) => this._related(powerId, s) || this._related(rawEntity, s)
-      );
-      const online = this._state(onlineId);
-      const charging = this._state(chargingId);
-      const battery = this._state(batteryId);
-      const img = this._imageUrl(powerId || rawEntity);
-      const onlineOn = online?.state === "on";
-      const chargingOn = charging?.state === "on";
+      const demo = this._isDemo(rawEntity, powerId);
 
-      const ports = padIds
-        .map((id, i) => {
-          const st = this._state(id);
-          const val = st ? this._fmtPower(st) : "—";
-          return `<div class="pad"><span class="pad-label">Port ${i + 1}</span><span class="pad-val">${val}<small>W</small></span></div>`;
-        })
-        .join("");
+      let name;
+      let powerText;
+      let onlineOn;
+      let chargingOn;
+      let batteryText = null;
+      let img;
+      let foot;
+      let padIds = [];
+      let portsHtml;
+
+      if (demo) {
+        name = this._config.name || DEMO.name;
+        powerText = DEMO.power;
+        onlineOn = DEMO.online;
+        chargingOn = DEMO.charging;
+        batteryText =
+          this._config.show_battery !== false && DEMO.battery != null
+            ? String(DEMO.battery)
+            : null;
+        img = this._config.image || DEMO.image;
+        foot = rawEntity && rawEntity !== DEMO_ENTITY ? rawEntity : DEMO.foot;
+        portsHtml = DEMO.ports
+          .map(
+            (val, i) =>
+              `<div class="pad"><span class="pad-label">Port ${i + 1}</span><span class="pad-val">${val}<small>W</small></span></div>`
+          )
+          .join("");
+      } else {
+        const power = this._state(powerId);
+        name =
+          this._config.name ||
+          power?.attributes?.friendly_name?.replace(/\s+Power out$/i, "") ||
+          this._state(this._related(powerId, "product_name"))?.state ||
+          "Anker";
+        const onlineId = this._related(powerId, "online") || this._related(rawEntity, "online");
+        const chargingId =
+          this._related(powerId, "charging") || this._related(rawEntity, "charging");
+        const batteryId =
+          this._related(powerId, "battery") || this._related(rawEntity, "battery");
+        padIds = ["pad_1_power", "pad_2_power", "pad_3_power"].map(
+          (s) => this._related(powerId, s) || this._related(rawEntity, s)
+        );
+        const online = this._state(onlineId);
+        const charging = this._state(chargingId);
+        const battery = this._state(batteryId);
+        img = this._imageUrl(powerId || rawEntity);
+        onlineOn = online?.state === "on";
+        chargingOn = charging?.state === "on";
+        powerText = this._fmtPower(power);
+        if (
+          this._config.show_battery !== false &&
+          battery &&
+          battery.state !== "unavailable" &&
+          battery.state !== "unknown"
+        ) {
+          batteryText = String(battery.state);
+        }
+        foot = powerId || rawEntity;
+        portsHtml = padIds
+          .map((id, i) => {
+            const st = this._state(id);
+            const val = st ? this._fmtPower(st) : "—";
+            return `<div class="pad"><span class="pad-label">Port ${i + 1}</span><span class="pad-val">${val}<small>W</small></span></div>`;
+          })
+          .join("");
+      }
 
       this.shadowRoot.innerHTML = `
       <style>${this._cardStyles()}</style>
@@ -442,39 +481,36 @@
               Anker BLE
             </div>
             <h2 class="title">${this._esc(name)}</h2>
-            <div class="power">${this._fmtPower(power)}<small>W</small></div>
+            <div class="power">${this._esc(powerText)}<small>W</small></div>
             ${
               this._config.show_status !== false
                 ? `<div class="chips">
                     <span class="chip ${onlineOn ? "on" : ""}">${onlineOn ? "Online" : "Offline"}</span>
                     <span class="chip ${chargingOn ? "on" : ""}">${chargingOn ? "Charging" : "Idle"}</span>
                     ${
-                      this._config.show_battery !== false &&
-                      battery &&
-                      battery.state !== "unavailable" &&
-                      battery.state !== "unknown"
-                        ? `<span class="chip warn">${this._esc(battery.state)}%</span>`
+                      batteryText != null
+                        ? `<span class="chip warn">${this._esc(batteryText)}%</span>`
                         : ""
                     }
                    </div>`
                 : ""
             }
-            ${this._showPorts() ? `<div class="pads">${ports}</div>` : ""}
+            ${this._showPorts() ? `<div class="pads">${portsHtml}</div>` : ""}
           </div>
           <div class="hero">
             <img src="${this._esc(img)}" alt="${this._esc(name)}" />
           </div>
         </div>
         <div class="foot">
-          <span>${this._esc(powerId || rawEntity)}</span>
-          <button class="refresh" type="button">Refresh</button>
+          <span>${this._esc(foot)}</span>
+          <button class="refresh" type="button"${demo ? " disabled" : ""}>Refresh</button>
         </div>
       </ha-card>
     `;
 
       this.shadowRoot.querySelector("button.refresh")?.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        if (!this._hass) return;
+        if (demo || !this._hass) return;
         const targets = [powerId, rawEntity, ...padIds].filter(Boolean);
         if (!targets.length) return;
         this._hass.callService("homeassistant", "update_entity", {
@@ -484,6 +520,7 @@
 
       this.shadowRoot.querySelector("ha-card")?.addEventListener("click", (ev) => {
         if (ev.target.closest("button")) return;
+        if (demo) return;
         const event = new Event("hass-more-info", { bubbles: true, composed: true });
         event.detail = { entityId: powerId || rawEntity };
         this.dispatchEvent(event);

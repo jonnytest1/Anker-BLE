@@ -27,7 +27,7 @@ Empty entity while editing shows a placeholder — it no longer throws a configu
 
 **Settings → Dashboards → ⋮ → Resources → Add resource**
 
-- URL: `/anker_ble_static/anker-ble-card.js?v=0.2.7`
+- URL: `/anker_ble_static/anker-ble-card.js?v=0.2.8`
 - Type: **JavaScript module**
 
 Hard-refresh the browser (Ctrl+Shift+R) after updating the integration so the new card JS loads.
