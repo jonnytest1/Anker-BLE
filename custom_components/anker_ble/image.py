@@ -75,3 +75,8 @@ class AnkerBleDeviceImage(AnkerBleEntity, ImageEntity):
     def _handle_coordinator_update(self) -> None:
         self._load_bytes()
         super()._handle_coordinator_update()
+
+    @property
+    def available(self) -> bool:
+        # Static product art — always show even when the charger is offline.
+        return True

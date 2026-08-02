@@ -14,7 +14,7 @@ from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import format_mac
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_ADDRESS,
@@ -30,7 +30,7 @@ from .protocol.telemetry import identity_as_dict, parse_telemetry
 
 _LOGGER = logging.getLogger(__name__)
 
-# How long to wait for an advertisement before failing a poll.
+# How long to wait for an advertisement before treating the poll as offline.
 _SCAN_WAIT_SECONDS = 20.0
 
 
@@ -50,6 +50,7 @@ def _empty_snapshot(address: str, name: str | None = None) -> dict[str, Any]:
         "parsed": {},
         "tlv_keys": [],
         "online": False,
+        "last_error": None,
     }
 
 
@@ -78,11 +79,20 @@ class AnkerBleCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Avoid blocking setup / “Initializing” on BLE reachability.
         self.data = _empty_snapshot(self.address, entry.data.get(CONF_NAME))
 
-    async def _async_get_ble_device(self) -> BLEDevice:
-        """Resolve a connectable BLEDevice from HA's scanner cache (with wait)."""
+    def _lookup_ble_device(self) -> BLEDevice | None:
+        """Prefer a connectable cache entry; fall back to any sighting."""
         ble_device = bluetooth.async_ble_device_from_address(
             self.hass, self.address, connectable=True
         )
+        if ble_device:
+            return ble_device
+        return bluetooth.async_ble_device_from_address(
+            self.hass, self.address, connectable=False
+        )
+
+    async def _async_get_ble_device(self) -> BLEDevice:
+        """Resolve a BLEDevice from HA's scanner cache (with wait)."""
+        ble_device = self._lookup_ble_device()
         if ble_device:
             return ble_device
 
@@ -94,9 +104,7 @@ class AnkerBleCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         deadline = time.monotonic() + _SCAN_WAIT_SECONDS
         while time.monotonic() < deadline:
             await asyncio.sleep(0.5)
-            ble_device = bluetooth.async_ble_device_from_address(
-                self.hass, self.address, connectable=True
-            )
+            ble_device = self._lookup_ble_device()
             if ble_device:
                 return ble_device
 
@@ -112,36 +120,70 @@ class AnkerBleCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception:  # noqa: BLE001
             detail = ""
 
-        raise UpdateFailed(
-            f"Anker BLE device {self.address} was not seen by any Bluetooth scanner "
-            f"for {_SCAN_WAIT_SECONDS:.0f}s. Keep the charger powered and near Home "
-            f"Assistant (or an ESPHome Bluetooth proxy), and close the Anker phone app. "
-            f"{detail}".strip()
+        raise RuntimeError(
+            f"not seen by any Bluetooth scanner for {_SCAN_WAIT_SECONDS:.0f}s. "
+            f"Keep the charger powered and near Home Assistant (or an ESPHome "
+            f"Bluetooth proxy), and close the Anker phone app. {detail}".strip()
         )
 
+    def _offline_snapshot(self, error: str) -> dict[str, Any]:
+        """Keep identity visible; clear live telemetry and mark offline.
+
+        Must not raise UpdateFailed — that flips last_update_success and makes
+        every entity Unavailable until the next lucky poll.
+        """
+        prev = self.data or _empty_snapshot(
+            self.address, self.entry.data.get(CONF_NAME)
+        )
+        identity = dict(prev.get("identity") or {})
+        name = self.entry.data.get(CONF_NAME)
+        if name:
+            identity.setdefault("product_name", name)
+            if name.startswith("ASHD"):
+                identity.setdefault("serial", name)
+        identity.setdefault("mac_or_id", self.address)
+        return {
+            "address": self.address,
+            "identity": identity,
+            "telemetry_cmd": prev.get("telemetry_cmd"),
+            "notifications": 0,
+            "parsed": {},
+            "tlv_keys": [],
+            "online": False,
+            "last_error": error,
+        }
+
     async def _async_update_data(self) -> dict[str, Any]:
-        ble_device = await self._async_get_ble_device()
-        name = self.entry.data.get(CONF_NAME) or ble_device.name or self.address
-        client = AnkerBleClient(ble_device)
         try:
+            ble_device = await self._async_get_ble_device()
+            name = self.entry.data.get(CONF_NAME) or ble_device.name or self.address
+            client = AnkerBleClient(ble_device)
             snapshot = await client.poll_session(
                 listen_seconds=self.listen_seconds,
                 subscribe=True,
                 use_retry_connector=True,
                 connect_name=str(name),
             )
-        except Exception as err:
-            raise UpdateFailed(
-                f"Anker BLE poll failed for {self.address}: {err}"
-            ) from err
+        except Exception as err:  # noqa: BLE001 — BLE stack raises many types
+            _LOGGER.warning("Anker BLE poll failed for %s: %s", self.address, err)
+            return self._offline_snapshot(str(err))
 
         parsed = parse_telemetry(snapshot.telemetry)
+        identity = identity_as_dict(snapshot.identity)
+        # Preserve serial/name hints from the config entry when confer omits them.
+        name = self.entry.data.get(CONF_NAME)
+        if name:
+            identity.setdefault("product_name", name)
+            if name.startswith("ASHD"):
+                identity.setdefault("serial", name)
+
         return {
             "address": self.address,
-            "identity": identity_as_dict(snapshot.identity),
+            "identity": identity,
             "telemetry_cmd": snapshot.telemetry_cmd,
             "notifications": snapshot.notifications,
             "parsed": asdict(parsed),
             "tlv_keys": list(snapshot.telemetry.keys()),
             "online": True,
+            "last_error": None,
         }

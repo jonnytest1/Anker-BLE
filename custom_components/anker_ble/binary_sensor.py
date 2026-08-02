@@ -57,7 +57,7 @@ class AnkerBleBinarySensor(AnkerBleEntity, BinarySensorEntity):
         data = self.coordinator.data or {}
         key = self.entity_description.key
         if key == "online":
-            return bool(data.get("online")) and self.coordinator.last_update_success
+            return bool(data.get("online"))
         parsed = data.get("parsed") or {}
         value = parsed.get(key)
         if value is None:
@@ -66,7 +66,10 @@ class AnkerBleBinarySensor(AnkerBleEntity, BinarySensorEntity):
 
     @property
     def available(self) -> bool:
-        # Online sensor stays available so the UI can show "off" while offline.
+        # Online stays available so the UI can show "off" while offline.
         if self.entity_description.key == "online":
             return True
+        # Charging unknown until telemetry provides it.
+        if self.entity_description.key == "charging":
+            return super().available and self.is_on is not None
         return super().available

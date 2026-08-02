@@ -56,6 +56,8 @@ SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement="%",
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
+        # Prime chargers have no battery; power banks enable this when present.
+        entity_registry_enabled_default=False,
     ),
 )
 
@@ -138,7 +140,11 @@ class AnkerBleParsedSensor(AnkerBleEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.native_value is not None
+        # Coordinator stays successful while offline; missing readings → unknown,
+        # not Unavailable (except battery, which is absent on chargers).
+        if self.entity_description.key == "battery_percent":
+            return super().available and self.native_value is not None
+        return super().available
 
     @property
     def entity_picture(self) -> str | None:
@@ -172,7 +178,10 @@ class AnkerBleIdentitySensor(AnkerBleEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.native_value is not None
+        # Keep serial / product visible even between failed BLE polls.
+        if self.native_value is not None:
+            return True
+        return super().available
 
     @property
     def entity_picture(self) -> str | None:
