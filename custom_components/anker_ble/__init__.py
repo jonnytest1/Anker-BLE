@@ -10,14 +10,27 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from .coordinator import AnkerBleCoordinator
+from .frontend import async_setup_frontend
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.IMAGE,
+]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up shared frontend assets once."""
+    await async_setup_frontend(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Anker BLE from a config entry."""
+    await async_setup_frontend(hass)
+
     coordinator = AnkerBleCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 

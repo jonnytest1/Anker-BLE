@@ -47,6 +47,9 @@
     "binary_sensor": {
       "online": { "name": "Online" },
       "charging": { "name": "Charging" }
+    },
+    "image": {
+      "device_image": { "name": "Device image" }
     }
   }
 }

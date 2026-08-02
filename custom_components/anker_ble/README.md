@@ -49,9 +49,22 @@ Options (integration → Configure): poll interval and listen window.
 | Battery % | TLV `bb` (power stations) |
 | Online | Last poll succeeded |
 | Charging | Derived from status TLV when available |
+| Device image | Product photo from Anker app assets |
+
+## Dashboard card (widget)
+
+The integration ships an **Anker BLE Device** Lovelace card with MagGo-style product art.
+
+```yaml
+type: custom:anker-ble-card
+entity: sensor.YOUR_DEVICE_power_out
+```
+
+See [lovelace.md](lovelace.md) for options and troubleshooting.
 
 ## Notes
 
 - Verified against MagGo-style `Charging` devices (`8C85` GATT, Solix CBC confer).
 - Power-station AC/DC switches are not exposed yet (sensors-first).
 - Keep the host Bluetooth adapter free; overlapping connections from the phone app will contend.
+- Product images are unofficial redistributions of app assets for local UI only.

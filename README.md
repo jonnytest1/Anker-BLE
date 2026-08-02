@@ -63,6 +63,17 @@ Restart Home Assistant, then add **Anker BLE**.
 
 Details: [custom_components/anker_ble/README.md](custom_components/anker_ble/README.md)
 
+### Dashboard widget
+
+After install, add the **Anker BLE Device** card (product art from the official app):
+
+```yaml
+type: custom:anker-ble-card
+entity: sensor.YOUR_DEVICE_power_out
+```
+
+More: [custom_components/anker_ble/lovelace.md](custom_components/anker_ble/lovelace.md)
+
 ---
 
 ## Python PoC

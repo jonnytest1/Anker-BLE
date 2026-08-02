@@ -19,6 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_ADDRESS, CONF_NAME, DOMAIN, MANUFACTURER
 from .coordinator import AnkerBleCoordinator
+from .product_art import hero_url
 
 SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
@@ -88,14 +89,14 @@ class AnkerBleEntity(CoordinatorEntity[AnkerBleCoordinator]):
     def __init__(self, coordinator: AnkerBleCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        address = entry.data[CONF_ADDRESS]
-        name = entry.data.get(CONF_NAME) or address
+        self._address = entry.data[CONF_ADDRESS]
+        name = entry.data.get(CONF_NAME) or self._address
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, address)},
+            identifiers={(DOMAIN, self._address)},
             name=name,
             manufacturer=MANUFACTURER,
             model=None,
-            connections={("mac", address)},
+            connections={("mac", self._address)},
         )
 
     @property
@@ -109,6 +110,7 @@ class AnkerBleEntity(CoordinatorEntity[AnkerBleCoordinator]):
             sw_version=identity.get("firmware"),
             serial_number=identity.get("serial"),
             connections={("mac", self._address)},
+            configuration_url="https://www.anker.com/",
         )
 
     def _identity(self) -> dict[str, Any]:
@@ -138,6 +140,18 @@ class AnkerBleParsedSensor(AnkerBleEntity, SensorEntity):
     def available(self) -> bool:
         return super().available and self.native_value is not None
 
+    @property
+    def entity_picture(self) -> str | None:
+        # Hero art on primary power for picture-entity / device cards.
+        if self.entity_description.key != "power_out_w":
+            return None
+        identity = self._identity()
+        return hero_url(
+            identity.get("product_name"),
+            identity.get("serial"),
+            identity.get("product_name"),
+        )
+
 
 class AnkerBleIdentitySensor(AnkerBleEntity, SensorEntity):
     def __init__(
@@ -159,6 +173,17 @@ class AnkerBleIdentitySensor(AnkerBleEntity, SensorEntity):
     @property
     def available(self) -> bool:
         return super().available and self.native_value is not None
+
+    @property
+    def entity_picture(self) -> str | None:
+        if self._key == "product_name":
+            identity = self._identity()
+            return hero_url(
+                identity.get("product_name"),
+                identity.get("serial"),
+                identity.get("product_name"),
+            )
+        return super().entity_picture
 
 
 class AnkerBleInfoSensor(AnkerBleEntity, SensorEntity):
