@@ -5,7 +5,7 @@ After installing the integration and restarting Home Assistant, the **Anker BLE 
 ## Add the card
 
 1. Edit a dashboard → **Add card** → **Custom: Anker BLE Device**
-2. In the editor, pick an Anker BLE entity (prefer **Power out**)
+2. In the editor, pick the device’s **Power out** sensor (`sensor.*_power_out`)
 3. Optionally set a name and toggle Port / battery / status chips
 
 YAML:
@@ -19,7 +19,7 @@ show_battery: true
 show_status: true
 ```
 
-You can also point `entity` at another entity from the same device (`sensor.*_serial`, `binary_sensor.*_online`, …); the card resolves **Power out** and port sensors automatically.
+The entity picker is filtered to Anker BLE **power** sensors (Power out and Port 1–3). Port sensors also work; the card still resolves Power out and siblings automatically.
 
 Empty entity while editing shows a placeholder — it no longer throws a configuration error.
 
@@ -27,7 +27,7 @@ Empty entity while editing shows a placeholder — it no longer throws a configu
 
 **Settings → Dashboards → ⋮ → Resources → Add resource**
 
-- URL: `/anker_ble_static/anker-ble-card.js?v=0.2.4`
+- URL: `/anker_ble_static/anker-ble-card.js?v=0.2.7`
 - Type: **JavaScript module**
 
 Hard-refresh the browser (Ctrl+Shift+R) after updating the integration so the new card JS loads.

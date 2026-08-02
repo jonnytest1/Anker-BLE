@@ -3,7 +3,7 @@
  * Art: /anker_ble_static/images/
  */
 (() => {
-  const CARD_VERSION = "0.2.4";
+  const CARD_VERSION = "0.2.7";
 
   function deepMerge(base, extra) {
     return { ...base, ...extra };
@@ -193,20 +193,199 @@
       if (!this.shadowRoot) this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = `
         <style>
+          :host { display: block; }
           ha-card {
             padding: 1.25rem 1.35rem;
-            background: linear-gradient(165deg, #1a1f24 0%, #0e1114 100%);
-            color: #c5d0d6;
-            border-radius: 16px;
+            color: var(--primary-text-color);
           }
-          h3 { margin: 0 0 .4rem; color: #9af0e0; font-size: 1rem; }
-          p { margin: 0; line-height: 1.4; font-size: .92rem; }
-          code { color: #7fd9cb; }
+          h3 {
+            margin: 0 0 .4rem;
+            color: var(--primary-color);
+            font-size: 1rem;
+            font-weight: var(--ha-font-weight-medium, 500);
+          }
+          p {
+            margin: 0;
+            line-height: 1.4;
+            font-size: .92rem;
+            color: var(--secondary-text-color);
+          }
+          code { color: var(--primary-color); }
         </style>
         <ha-card>
           <h3>Anker BLE Device</h3>
           <p>${this._esc(message)}</p>
         </ha-card>
+      `;
+    }
+
+    _cardStyles() {
+      return `
+        :host { display: block; }
+        ha-card {
+          overflow: hidden;
+          position: relative;
+          color: var(--primary-text-color);
+        }
+        .glow {
+          position: absolute; inset: auto -20% -45% -20%; height: 55%;
+          background: radial-gradient(
+            ellipse at center,
+            color-mix(in srgb, var(--primary-color) 18%, transparent),
+            transparent 70%
+          );
+          pointer-events: none;
+        }
+        .body {
+          display: grid;
+          grid-template-columns: 1.05fr 1fr;
+          gap: 0.5rem;
+          padding: var(--ha-card-padding, 16px);
+          padding-bottom: 12px;
+          min-height: 210px;
+          position: relative;
+          z-index: 1;
+        }
+        @media (max-width: 450px) {
+          .body { grid-template-columns: 1fr; }
+          .hero { order: -1; max-height: 160px; }
+        }
+        .meta {
+          display: flex;
+          flex-direction: column;
+          gap: .55rem;
+          justify-content: center;
+          min-width: 0;
+        }
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: .5rem;
+          font-size: .72rem;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          color: var(--primary-color);
+          font-weight: var(--ha-font-weight-medium, 500);
+        }
+        .brand img {
+          height: 12px;
+          opacity: .85;
+          /* Keep logo readable on light and dark themes */
+          filter: var(--anker-ble-logo-filter, none);
+        }
+        .title {
+          font-size: 1.25rem;
+          font-weight: var(--ha-font-weight-bold, 700);
+          letter-spacing: -.02em;
+          margin: 0;
+          color: var(--primary-text-color);
+          overflow-wrap: anywhere;
+        }
+        .power {
+          font-variant-numeric: tabular-nums;
+          font-size: clamp(2.2rem, 6vw, 2.8rem);
+          font-weight: var(--ha-font-weight-bold, 700);
+          line-height: 1;
+          letter-spacing: -.04em;
+          color: var(--primary-text-color);
+        }
+        .power small {
+          font-size: .4em;
+          margin-left: .15rem;
+          color: var(--secondary-text-color);
+          font-weight: var(--ha-font-weight-medium, 500);
+        }
+        .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+        .chip {
+          font-size: .72rem;
+          padding: .28rem .55rem;
+          border-radius: var(--ha-border-radius-pill, 999px);
+          background: var(--secondary-background-color);
+          border: 1px solid var(--divider-color);
+          color: var(--secondary-text-color);
+        }
+        .chip.on {
+          background: color-mix(in srgb, var(--success-color, var(--primary-color)) 18%, transparent);
+          border-color: color-mix(in srgb, var(--success-color, var(--primary-color)) 45%, transparent);
+          color: var(--success-color, var(--primary-color));
+        }
+        .chip.warn {
+          background: color-mix(in srgb, var(--warning-color, var(--accent-color)) 16%, transparent);
+          border-color: color-mix(in srgb, var(--warning-color, var(--accent-color)) 40%, transparent);
+          color: var(--warning-color, var(--accent-color));
+        }
+        .pads {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: .4rem;
+          margin-top: .25rem;
+        }
+        .pad {
+          background: var(--secondary-background-color);
+          border: 1px solid var(--divider-color);
+          border-radius: var(--ha-border-radius-md, 12px);
+          padding: .45rem .4rem;
+          text-align: center;
+        }
+        .pad-label {
+          display: block;
+          font-size: .65rem;
+          color: var(--secondary-text-color);
+          margin-bottom: .15rem;
+        }
+        .pad-val {
+          font-weight: var(--ha-font-weight-bold, 700);
+          font-variant-numeric: tabular-nums;
+          color: var(--primary-text-color);
+        }
+        .pad-val small {
+          color: var(--secondary-text-color);
+          margin-left: .1rem;
+          font-size: .7em;
+        }
+        .hero {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+        .hero img {
+          max-width: 100%;
+          max-height: 220px;
+          object-fit: contain;
+          filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--primary-text-color) 18%, transparent));
+          transition: transform .35s ease;
+        }
+        ha-card:hover .hero img { transform: translateY(-3px) scale(1.02); }
+        .foot {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 var(--ha-card-padding, 16px) 14px;
+          color: var(--secondary-text-color);
+          font-size: .75rem;
+          position: relative;
+          z-index: 1;
+          gap: .5rem;
+          flex-wrap: wrap;
+          border-top: 1px solid var(--divider-color);
+          margin-top: 2px;
+          padding-top: 10px;
+        }
+        button.refresh {
+          appearance: none;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          border-radius: var(--ha-border-radius-pill, 999px);
+          padding: .35rem .7rem;
+          cursor: pointer;
+          font: inherit;
+        }
+        button.refresh:hover {
+          border-color: var(--primary-color);
+          color: var(--primary-color);
+        }
       `;
     }
 
@@ -253,85 +432,7 @@
         .join("");
 
       this.shadowRoot.innerHTML = `
-      <style>
-        :host { display: block; }
-        ha-card {
-          overflow: hidden;
-          background: linear-gradient(165deg, #1a1f24 0%, #0e1114 55%, #12181c 100%);
-          color: #f2f5f7;
-          border-radius: 20px;
-          box-shadow: 0 12px 40px rgba(0,0,0,.35);
-          position: relative;
-        }
-        .glow {
-          position: absolute; inset: auto -20% -40% -20%; height: 60%;
-          background: radial-gradient(ellipse at center, rgba(0,190,164,.22), transparent 70%);
-          pointer-events: none;
-        }
-        .body {
-          display: grid;
-          grid-template-columns: 1.05fr 1fr;
-          gap: 0.5rem;
-          padding: 1.1rem 1.15rem 1rem;
-          min-height: 210px;
-          position: relative;
-          z-index: 1;
-        }
-        @media (max-width: 450px) {
-          .body { grid-template-columns: 1fr; }
-          .hero { order: -1; max-height: 160px; }
-        }
-        .meta { display: flex; flex-direction: column; gap: .55rem; justify-content: center; }
-        .brand {
-          display: flex; align-items: center; gap: .5rem;
-          font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
-          color: #7fd9cb; font-weight: 600;
-        }
-        .brand img { height: 12px; opacity: .9; }
-        .title { font-size: 1.25rem; font-weight: 650; letter-spacing: -.02em; margin: 0; }
-        .power {
-          font-variant-numeric: tabular-nums;
-          font-size: clamp(2.2rem, 6vw, 2.8rem);
-          font-weight: 700; line-height: 1; letter-spacing: -.04em;
-        }
-        .power small { font-size: .4em; margin-left: .15rem; color: #9aa7ae; font-weight: 600; }
-        .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
-        .chip {
-          font-size: .72rem; padding: .28rem .55rem; border-radius: 999px;
-          background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
-          color: #c5d0d6;
-        }
-        .chip.on { background: rgba(0,190,164,.18); border-color: rgba(0,190,164,.45); color: #9af0e0; }
-        .chip.warn { background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.35); color: #ffd28a; }
-        .pads { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin-top: .25rem; }
-        .pad {
-          background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
-          border-radius: 12px; padding: .45rem .4rem; text-align: center;
-        }
-        .pad-label { display: block; font-size: .65rem; color: #8a969d; margin-bottom: .15rem; }
-        .pad-val { font-weight: 650; font-variant-numeric: tabular-nums; }
-        .pad-val small { color: #8a969d; margin-left: .1rem; font-size: .7em; }
-        .hero {
-          display: flex; align-items: center; justify-content: center;
-          position: relative;
-        }
-        .hero img {
-          max-width: 100%; max-height: 220px; object-fit: contain;
-          filter: drop-shadow(0 18px 24px rgba(0,0,0,.45));
-          transition: transform .35s ease;
-        }
-        ha-card:hover .hero img { transform: translateY(-4px) scale(1.02); }
-        .foot {
-          display: flex; justify-content: space-between; align-items: center;
-          padding: 0 1.15rem 0.9rem; color: #7e8a91; font-size: .75rem; position: relative; z-index: 1;
-          gap: .5rem; flex-wrap: wrap;
-        }
-        button.refresh {
-          appearance: none; border: 0; background: rgba(255,255,255,.06);
-          color: #cfe3df; border-radius: 999px; padding: .35rem .7rem; cursor: pointer; font: inherit;
-        }
-        button.refresh:hover { background: rgba(0,190,164,.2); }
-      </style>
+      <style>${this._cardStyles()}</style>
       <ha-card>
         <div class="glow"></div>
         <div class="body">
@@ -413,8 +514,11 @@
       if (config && config.show_pads != null && config.show_ports == null) {
         this._config.show_ports = config.show_pads;
       }
-      this._built = false;
-      this._render();
+      // Do NOT remount here — Lovelace echoes config after every keystroke/Enter
+      // and rebuilding ha-form steals focus from the Name field.
+      if (!this._form && this._hass) {
+        this._render();
+      }
     }
 
     set hass(hass) {
@@ -423,7 +527,28 @@
         this._form.hass = hass;
         return;
       }
-      this._render();
+      if (this._config) {
+        this._render();
+      }
+    }
+
+    connectedCallback() {
+      if (!this._boundKeyDown) {
+        this._boundKeyDown = (ev) => {
+          // Enter must not submit the dashboard editor dialog / remount the form.
+          if (ev.key === "Enter") {
+            ev.preventDefault();
+            ev.stopPropagation();
+          }
+        };
+      }
+      this.addEventListener("keydown", this._boundKeyDown);
+    }
+
+    disconnectedCallback() {
+      if (this._boundKeyDown) {
+        this.removeEventListener("keydown", this._boundKeyDown);
+      }
     }
 
     _schema() {
@@ -432,7 +557,14 @@
           name: "entity",
           selector: {
             entity: {
-              domain: ["sensor", "binary_sensor", "image"],
+              // Power out + Port 1–3 from this integration only.
+              filter: [
+                {
+                  integration: "anker_ble",
+                  domain: "sensor",
+                  device_class: "power",
+                },
+              ],
             },
           },
         },
@@ -454,7 +586,7 @@
 
     _label(schema) {
       const labels = {
-        entity: "Anker BLE entity (Power out preferred)",
+        entity: "Power out sensor",
         name: "Name (optional)",
         show_ports: "Show Port 1–3",
         show_battery: "Show battery",
@@ -464,15 +596,14 @@
     }
 
     _render() {
-      if (!this._config || this._built) return;
+      if (!this._config || this._form || this._fallback) return;
       if (!this._hass) return;
-      this._built = true;
-      this._form = null;
       // Use light DOM so ha-form / entity picker work (broken inside shadow roots).
       this.innerHTML = `
         <div class="anker-ble-editor" style="padding:4px 0 8px">
           <div style="color:var(--secondary-text-color);font-size:.85rem;margin:.35rem 0 .75rem;line-height:1.35">
-            Choose <code>sensor.*_power_out</code> when available, or any other entity from the Anker BLE device.
+            Select <strong>Power out</strong> (<code>sensor.*_power_out</code>) for your Anker BLE device.
+            Port power sensors also work.
           </div>
           <div id="anker-ble-form-host"></div>
         </div>
@@ -496,6 +627,7 @@
         form.addEventListener("value-changed", (ev) => {
           const value = ev.detail?.value || {};
           const next = {
+            type: this._config.type || "custom:anker-ble-card",
             ...this._config,
             ...value,
             show_pads: value.show_ports !== false,
@@ -508,9 +640,10 @@
         this._form = form;
         host.appendChild(form);
       } catch (err) {
+        this._fallback = true;
         host.innerHTML = `
           <div style="display:grid;gap:10px">
-            <label>Anker BLE entity
+            <label>Power out sensor
               <input id="entity" type="text" style="width:100%" placeholder="sensor.xxx_power_out"
                 value="${this._esc(this._config.entity || "")}" />
             </label>
@@ -524,6 +657,7 @@
         `;
         const fire = () => {
           const next = {
+            type: this._config.type || "custom:anker-ble-card",
             ...this._config,
             entity: host.querySelector("#entity").value.trim(),
             name: host.querySelector("#name").value.trim(),
