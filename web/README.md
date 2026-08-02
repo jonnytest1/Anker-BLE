@@ -1,12 +1,11 @@
 # Anker BLE — Web Bluetooth client
 
-Browser-only page to scan, connect, run FF09 ECDH confer, and read telemetry.
+Browser client with the same MagGo-style device widget as the Home Assistant card:
+product art, total power, pad 1–3, online / charging / battery chips, identity.
 
 ## Hosted (GitHub Pages)
 
-After the first successful Pages deploy:
-
-`https://<owner>.github.io/<repo>/`
+**[https://t-rex-xp.github.io/Anker-BLE/](https://t-rex-xp.github.io/Anker-BLE/)**
 
 HTTPS is required for Web Bluetooth on non-localhost origins.
 
@@ -31,23 +30,27 @@ cd web
 
 Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/)
 
+## Features (parity with HA card)
+
+| Feature | Notes |
+|---------|--------|
+| Product hero image | From Anker app assets (`images/`), keyed by serial / product |
+| Power out | Large watt readout |
+| Pad 1–3 | MagGo pad power |
+| Status chips | Online, charging, battery %, session |
+| Identity | Product, firmware, serial, MAC |
+| Refresh telemetry | Re-sends subscribe `0x4200` |
+
 ## Requirements
 
 - Chrome or Edge (desktop or Android)
 - `http://localhost…` or HTTPS
 - Device nearby and advertising
 
-Safari / Firefox desktop do not support Web Bluetooth.
-
-## Use
-
-1. **Scan & connect** (FF09 filter) or **Pick any device**
-2. Confer runs automatically, then telemetry subscribe
-3. Identity + power fields appear when session frames decrypt
-
 ## Files
 
 | File | Role |
 |------|------|
-| `index.html` | Self-contained UI + protocol (no external JS) |
+| `index.html` | UI + protocol |
+| `images/` | Product art (shared with HA integration) |
 | `serve.bat` / `serve.sh` | Local static server |

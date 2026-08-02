@@ -6,89 +6,141 @@
     <title>Anker BLE — Web Bluetooth</title>
     <style>
       :root {
-        --bg0: #0f1412;
-        --bg1: #18201c;
-        --bg2: #212b26;
-        --ink: #e8f0ea;
-        --muted: #9aada1;
-        --accent: #3dcf8e;
-        --warn: #e0b35a;
+        --bg0: #0e1114;
+        --bg1: #1a1f24;
+        --ink: #f2f5f7;
+        --muted: #8a969d;
+        --accent: #00bea4;
+        --accent-soft: rgba(0, 190, 164, 0.18);
+        --warn: #ffb020;
         --bad: #e07272;
-        --line: rgba(232, 240, 234, 0.12);
-        --font-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
-        --font-body: "Segoe UI", "Source Sans 3", sans-serif;
-        --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+        --line: rgba(255, 255, 255, 0.08);
+        --font-body: "Segoe UI", system-ui, sans-serif;
+        --font-mono: "Cascadia Mono", ui-monospace, Consolas, monospace;
       }
       * { box-sizing: border-box; }
       html, body {
         margin: 0;
         min-height: 100%;
         background:
-          radial-gradient(1200px 600px at 10% -10%, #1c3a2d 0%, transparent 55%),
-          radial-gradient(900px 500px at 100% 0%, #243048 0%, transparent 50%),
+          radial-gradient(900px 500px at 85% -10%, rgba(0, 190, 164, 0.14), transparent 55%),
+          radial-gradient(700px 400px at 0% 100%, rgba(36, 48, 72, 0.45), transparent 50%),
           var(--bg0);
         color: var(--ink);
         font-family: var(--font-body);
       }
-      .page { width: min(960px, calc(100% - 2rem)); margin: 0 auto; padding: 2.5rem 0 3rem; }
-      .brand { margin: 0; font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.03em; color: var(--accent); }
-      .hero h1 { margin: 0.2rem 0 0.6rem; font-family: var(--font-display); font-weight: 500; font-size: clamp(1.4rem, 3vw, 1.9rem); }
-      .lede { margin: 0; max-width: 38rem; color: var(--muted); line-height: 1.45; }
+      .page { width: min(920px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
+      .top { margin-bottom: 1.25rem; }
+      .eyebrow {
+        display: flex; align-items: center; gap: 0.55rem;
+        font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+        color: #7fd9cb; font-weight: 600; margin: 0 0 0.35rem;
+      }
+      .eyebrow img { height: 12px; opacity: 0.9; }
+      .top h1 { margin: 0; font-size: clamp(1.5rem, 3.5vw, 2rem); letter-spacing: -0.03em; }
+      .lede { margin: 0.45rem 0 0; color: var(--muted); max-width: 36rem; line-height: 1.45; }
       .banner {
-        display: none;
-        margin: 1rem 0 0;
-        padding: 0.9rem 1rem;
-        border: 1px solid rgba(224, 114, 114, 0.45);
-        border-radius: 12px;
-        background: rgba(80, 20, 20, 0.45);
-        color: #f0c8c8;
-        line-height: 1.45;
+        display: none; margin: 1rem 0 0; padding: 0.9rem 1rem;
+        border: 1px solid rgba(224, 114, 114, 0.45); border-radius: 12px;
+        background: rgba(80, 20, 20, 0.45); color: #f0c8c8; line-height: 1.45;
       }
       .banner.visible { display: block; }
-      .banner code {
-        font-family: var(--font-mono);
-        font-size: 0.85em;
-        color: #fff;
-        background: rgba(0,0,0,0.35);
-        padding: 0.1rem 0.35rem;
-        border-radius: 4px;
+      .banner code, .foot code {
+        font-family: var(--font-mono); font-size: 0.85em;
+        background: rgba(0,0,0,0.35); padding: 0.1rem 0.35rem; border-radius: 4px; color: #9af0e0;
       }
-      .support { margin: 0.9rem 0 0; font-size: 0.95rem; }
+      .support { margin: 0.75rem 0 0; font-size: 0.95rem; }
       .support[data-tone="ok"] { color: var(--accent); }
       .support[data-tone="bad"] { color: var(--bad); }
-      .panel {
-        background: linear-gradient(180deg, var(--bg1), var(--bg2));
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        padding: 1.1rem 1.2rem 1.25rem;
+
+      /* Device widget — mirrors HA anker-ble-card */
+      .device-card {
+        position: relative; overflow: hidden;
+        background: linear-gradient(165deg, #1a1f24 0%, #0e1114 55%, #12181c 100%);
+        border: 1px solid var(--line); border-radius: 20px;
+        box-shadow: 0 12px 40px rgba(0,0,0,.35);
         margin-bottom: 1rem;
       }
+      .device-card .glow {
+        position: absolute; inset: auto -20% -40% -20%; height: 60%;
+        background: radial-gradient(ellipse at center, rgba(0,190,164,.22), transparent 70%);
+        pointer-events: none;
+      }
+      .device-body {
+        display: grid; grid-template-columns: 1.05fr 1fr; gap: 0.5rem;
+        padding: 1.15rem 1.2rem 0.85rem; min-height: 230px; position: relative; z-index: 1;
+      }
+      @media (max-width: 640px) {
+        .device-body { grid-template-columns: 1fr; }
+        .device-hero { order: -1; max-height: 180px; }
+      }
+      .device-meta { display: flex; flex-direction: column; gap: 0.55rem; justify-content: center; }
+      .device-brand {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+        color: #7fd9cb; font-weight: 600;
+      }
+      .device-brand img { height: 12px; }
+      .device-title { margin: 0; font-size: 1.3rem; font-weight: 650; letter-spacing: -0.02em; }
+      .device-sub { margin: 0; color: var(--muted); font-size: 0.85rem; font-family: var(--font-mono); }
+      .power {
+        font-variant-numeric: tabular-nums;
+        font-size: clamp(2.4rem, 7vw, 3rem);
+        font-weight: 700; line-height: 1; letter-spacing: -0.04em;
+      }
+      .power small { font-size: 0.38em; margin-left: 0.15rem; color: var(--muted); font-weight: 600; }
+      .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+      .chip {
+        font-size: 0.72rem; padding: 0.28rem 0.55rem; border-radius: 999px;
+        background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); color: #c5d0d6;
+      }
+      .chip.on { background: var(--accent-soft); border-color: rgba(0,190,164,.45); color: #9af0e0; }
+      .chip.warn { background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.35); color: #ffd28a; }
+      .pads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-top: 0.15rem; }
+      .pad {
+        background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
+        border-radius: 12px; padding: 0.45rem 0.4rem; text-align: center;
+      }
+      .pad-label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.15rem; }
+      .pad-val { font-weight: 650; font-variant-numeric: tabular-nums; }
+      .pad-val small { color: var(--muted); margin-left: 0.1rem; font-size: 0.7em; }
+      .device-hero { display: flex; align-items: center; justify-content: center; }
+      .device-hero img {
+        max-width: 100%; max-height: 240px; object-fit: contain;
+        filter: drop-shadow(0 18px 24px rgba(0,0,0,.45));
+        transition: transform 0.35s ease;
+      }
+      .device-card:hover .device-hero img { transform: translateY(-4px) scale(1.02); }
+      .device-foot {
+        display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+        padding: 0 1.2rem 1rem; color: var(--muted); font-size: 0.75rem; position: relative; z-index: 1;
+        flex-wrap: wrap;
+      }
+      .device-foot .ids { font-family: var(--font-mono); font-size: 0.72rem; }
+
+      .panel {
+        background: linear-gradient(180deg, #161b1f, #12161a);
+        border: 1px solid var(--line); border-radius: 16px;
+        padding: 1rem 1.15rem 1.15rem; margin-bottom: 1rem;
+      }
       .panel h2 {
-        margin: 0 0 0.75rem;
-        font-size: 0.85rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--muted);
-        font-weight: 600;
+        margin: 0 0 0.75rem; font-size: 0.8rem; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--muted); font-weight: 600;
       }
-      .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+      .actions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
       button {
-        appearance: none;
-        border: 1px solid var(--line);
-        background: var(--bg0);
-        color: var(--ink);
-        border-radius: 999px;
-        padding: 0.65rem 1.1rem;
-        font: inherit;
-        font-weight: 600;
-        cursor: pointer;
+        appearance: none; border: 1px solid var(--line); background: #0e1114;
+        color: var(--ink); border-radius: 999px; padding: 0.6rem 1.05rem;
+        font: inherit; font-weight: 600; cursor: pointer;
       }
-      button:hover:not(:disabled) { border-color: rgba(61, 207, 142, 0.45); }
+      button:hover:not(:disabled) { border-color: rgba(0,190,164,0.45); }
       button:disabled { opacity: 0.4; cursor: not-allowed; }
-      button.primary { background: linear-gradient(180deg, #49d999, #2aa86a); color: #062016; border-color: transparent; }
+      button.primary {
+        background: linear-gradient(180deg, #1fd6bb, #00a890); color: #062016; border-color: transparent;
+      }
       button.ghost { background: transparent; }
       button.small { padding: 0.35rem 0.75rem; font-size: 0.85rem; }
-      .status { margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.9rem; }
+      .status { margin: 0.85rem 0 0; font-family: var(--font-mono); font-size: 0.9rem; }
       .status[data-tone="ok"] { color: var(--accent); }
       .status[data-tone="busy"] { color: var(--warn); }
       .status[data-tone="bad"] { color: var(--bad); }
@@ -102,41 +154,75 @@
       th { color: var(--muted); font-weight: 500; width: 45%; }
       .muted { color: var(--muted); }
       .raw { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
-      .raw code { font-family: var(--font-mono); font-size: 0.72rem; background: rgba(0,0,0,0.35); padding: 0.2rem 0.35rem; border-radius: 6px; }
+      .raw code {
+        font-family: var(--font-mono); font-size: 0.72rem;
+        background: rgba(0,0,0,0.35); padding: 0.2rem 0.35rem; border-radius: 6px;
+      }
       .log-head { display: flex; align-items: center; justify-content: space-between; }
       .log {
-        height: 260px; overflow: auto; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.45;
+        height: 220px; overflow: auto; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.45;
         background: rgba(0,0,0,0.28); border-radius: 10px; padding: 0.75rem;
       }
       .log-line .ts { color: var(--muted); margin-right: 0.5rem; }
       .foot { color: var(--muted); font-size: 0.9rem; }
-      .foot code { font-family: var(--font-mono); color: var(--accent); }
       details summary { cursor: pointer; color: var(--muted); margin-top: 0.6rem; }
     </style>
   </head>
   <body>
     <div class="page">
-      <header class="hero">
-        <p class="brand">Anker BLE</p>
+      <header class="top">
+        <p class="eyebrow">
+          <img src="./images/anker_solix_logo.svg" alt="" />
+          Anker BLE
+        </p>
         <h1>Browser client</h1>
         <p class="lede">
-          Scan and connect with Web Bluetooth. Runs FF09 confer, then
-          subscribes for encrypted telemetry — no native app required.
+          Same MagGo-style device view as the Home Assistant card — product art,
+          power, pads, charging status — over Web Bluetooth.
         </p>
         <div id="file-banner" class="banner">
-          You opened this page as a local file (<code>file://</code>). Chrome blocks
-          scripts and Web Bluetooth that way. Serve it over HTTP instead:
-          <br /><br />
-          In this folder run: <code>python -m http.server 8765</code>
-          <br />
-          Then open <code>http://127.0.0.1:8765/</code>
-          <br /><br />
-          Or double-click <code>serve.bat</code> (Windows) / <code>serve.sh</code> (macOS/Linux).
+          You opened this as <code>file://</code>. Serve over HTTP:
+          <code>python -m http.server 8765</code> then open
+          <code>http://127.0.0.1:8765/</code>
         </div>
         <p id="support" class="support" data-tone="neutral"></p>
       </header>
 
+      <section class="device-card" id="device-card" aria-live="polite">
+        <div class="glow"></div>
+        <div class="device-body">
+          <div class="device-meta">
+            <div class="device-brand">
+              <img src="./images/anker_solix_logo.svg" alt="" />
+              Device
+            </div>
+            <h2 class="device-title" id="card-title">Not connected</h2>
+            <p class="device-sub" id="card-sub">Scan to find an FF09 Anker / Solix device</p>
+            <div class="power" id="card-power">—<small>W</small></div>
+            <div class="chips" id="card-chips">
+              <span class="chip">Offline</span>
+              <span class="chip">Idle</span>
+            </div>
+            <div class="pads" id="card-pads">
+              <div class="pad"><span class="pad-label">Pad 1</span><span class="pad-val">—<small>W</small></span></div>
+              <div class="pad"><span class="pad-label">Pad 2</span><span class="pad-val">—<small>W</small></span></div>
+              <div class="pad"><span class="pad-label">Pad 3</span><span class="pad-val">—<small>W</small></span></div>
+            </div>
+          </div>
+          <div class="device-hero">
+            <img id="card-image" src="./images/default.png" alt="Anker device" />
+          </div>
+        </div>
+        <div class="device-foot">
+          <span class="ids" id="card-ids">—</span>
+          <div class="actions">
+            <button id="btn-refresh" type="button" class="ghost small" disabled>Refresh telemetry</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel controls">
+        <h2>Connection</h2>
         <div class="actions">
           <button id="btn-connect" type="button" class="primary">Scan &amp; connect</button>
           <button id="btn-connect-all" type="button" class="ghost">Pick any device</button>
@@ -153,12 +239,12 @@
           <div id="identity"></div>
         </section>
         <section class="panel">
-          <h2>Telemetry</h2>
+          <h2>Telemetry detail</h2>
           <div id="telemetry"></div>
         </section>
       </div>
 
-      <section class="panel log-panel">
+      <section class="panel">
         <div class="log-head">
           <h2>Log</h2>
           <button id="btn-clear" type="button" class="ghost small">Clear</button>
@@ -168,16 +254,12 @@
 
       <footer class="foot">
         <p>
-          Chrome / Edge on desktop or Android. Must be served from
-          <code>localhost</code> or HTTPS — not opened as a file.
+          Chrome / Edge · <code>localhost</code> or HTTPS · product art from Anker app assets
         </p>
       </footer>
     </div>
 
     <script>
-/* Single-file classic script (no ES modules) so CORS/file:// module errors go away.
-   Web Bluetooth still requires http://127.0.0.1 or HTTPS. */
-
 const IDENTIFIER_UUID = "0000ff09-0000-1000-8000-00805f9b34fb";
 const UUID_FAMILIES = {
   "8C85": {
@@ -383,8 +465,10 @@ function sleep(ms) {
 }
 
 class AnkerWebBleClient {
-  constructor({ log = console.log } = {}) {
+  constructor({ log = console.log, onTelemetry = null, onIdentity = null } = {}) {
     this.log = log;
+    this.onTelemetry = onTelemetry;
+    this.onIdentity = onIdentity;
     this.device = null;
     this.server = null;
     this.writeChar = null;
@@ -477,6 +561,7 @@ class AnkerWebBleClient {
         this.telemetry = tlv;
         this.telemetryCmd = cmd;
         this.log("telemetry cmd=" + cmd + " " + tlvToStr(tlv));
+        if (this.onTelemetry) this.onTelemetry(tlv, cmd);
         return;
       } catch (_) { /* next */ }
     }
@@ -539,6 +624,7 @@ class AnkerWebBleClient {
         this.negotiationTs = Date.now();
         this.identity = identityFromTlv(parseTlv(frame.payload));
         this.log("Identity product=" + this.identity.product_name + " fw=" + this.identity.firmware);
+        if (this.onIdentity) this.onIdentity(this.identity);
       }
       if (cmd === "0821") {
         const tlv = parseTlv(frame.payload);
@@ -578,6 +664,48 @@ class AnkerWebBleClient {
   }
 }
 
+
+/* ---------- Product art (mirrors HA product_art.py) ---------- */
+const PRODUCT_ART = {
+  a110a: { hero: "a110a.png", label: "MagGo Pad A110A" },
+  a110b: { hero: "a110b.png", label: "MagGo Pad A110B" },
+  a110g: { hero: "a110g.png", label: "MagGo Pad A110G" },
+  a1340: { hero: "a1340.png", label: "Anker Charger A1340" },
+  a1341: { hero: "a1341.png", label: "Anker Charger A1341" },
+  a1903: { hero: "a1903.png", label: "MagGo Battery A1903" },
+  a1770: { hero: "a1770.png", label: "Solix A1770" },
+  a1771: { hero: "a1771.png", label: "Solix A1771" },
+  a1772: { hero: "a1772.png", label: "Solix A1772" },
+  default: { hero: "default.png", label: "Anker Device" },
+};
+const ART_HINTS = [
+  ["ashd", "a110a"], ["a110a", "a110a"], ["a110b", "a110b"], ["a110g", "a110g"],
+  ["a1340", "a1340"], ["a1341", "a1341"], ["a1903", "a1903"],
+  ["a1770", "a1770"], ["a1771", "a1771"], ["a1772", "a1772"],
+];
+
+function resolveArt(identity) {
+  const blob = [identity?.product_name, identity?.serial, identity?.mac_or_id]
+    .filter(Boolean).join(" ").toLowerCase().replace(/[\s-]/g, "");
+  for (const [hint, key] of ART_HINTS) {
+    if (blob.includes(hint)) return PRODUCT_ART[key];
+  }
+  const soft = [identity?.product_name, identity?.serial].filter(Boolean).join(" ").toLowerCase();
+  if (soft.includes("charging") || soft.includes("maggo")) return PRODUCT_ART.a110a;
+  if (soft.includes("solix")) return PRODUCT_ART.a1770;
+  return PRODUCT_ART.default;
+}
+
+function heroSrc(identity) {
+  return "./images/" + resolveArt(identity).hero;
+}
+
+function fmtPower(n) {
+  if (n == null || Number.isNaN(Number(n))) return "—";
+  const v = Number(n);
+  return v >= 10 ? v.toFixed(1) : v.toFixed(2);
+}
+
 /* ---------- UI ---------- */
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -588,19 +716,29 @@ const ui = {
   btnConfer: $("btn-confer"),
   btnSubscribe: $("btn-subscribe"),
   btnDisconnect: $("btn-disconnect"),
+  btnRefresh: $("btn-refresh"),
   identity: $("identity"),
   telemetry: $("telemetry"),
   support: $("support"),
   banner: $("file-banner"),
+  cardTitle: $("card-title"),
+  cardSub: $("card-sub"),
+  cardPower: $("card-power"),
+  cardChips: $("card-chips"),
+  cardPads: $("card-pads"),
+  cardImage: $("card-image"),
+  cardIds: $("card-ids"),
 };
 let client = null;
+let lastIdentity = null;
+let online = false;
 
 function setStatus(text, tone) {
   ui.status.textContent = text;
   ui.status.dataset.tone = tone || "neutral";
 }
 function escapeHtml(s) {
-  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 function log(msg) {
   const line = document.createElement("div");
@@ -609,17 +747,77 @@ function log(msg) {
   ui.log.appendChild(line);
   ui.log.scrollTop = ui.log.scrollHeight;
 }
+
+function renderDeviceCard(identity, parsed, { connected = false, negotiated = false } = {}) {
+  lastIdentity = identity || lastIdentity;
+  const id = lastIdentity || {};
+  const art = resolveArt(id);
+  const title = id.product_name || client?.device?.name || art.label;
+  ui.cardTitle.textContent = title;
+  ui.cardSub.textContent = [
+    id.firmware ? "fw " + id.firmware : null,
+    id.serial || null,
+  ].filter(Boolean).join(" · ") || (connected ? "Connected" : "Scan to find an FF09 Anker / Solix device");
+  ui.cardImage.src = heroSrc(id);
+  ui.cardImage.alt = title;
+
+  const power = parsed?.power_out_w;
+  ui.cardPower.innerHTML = fmtPower(power) + "<small>W</small>";
+
+  const charging = parsed?.charging === true;
+  const batt = parsed?.battery_percent;
+  const chips = [];
+  chips.push('<span class="chip ' + (online || connected ? "on" : "") + '">' + (online || connected ? "Online" : "Offline") + "</span>");
+  chips.push('<span class="chip ' + (charging ? "on" : "") + '">' + (charging ? "Charging" : "Idle") + "</span>");
+  if (batt != null) chips.push('<span class="chip warn">' + escapeHtml(String(batt)) + "%</span>");
+  if (negotiated) chips.push('<span class="chip on">Session</span>');
+  ui.cardChips.innerHTML = chips.join("");
+
+  const pads = [
+    ["Pad 1", parsed?.pad_1_power_w],
+    ["Pad 2", parsed?.pad_2_power_w],
+    ["Pad 3", parsed?.pad_3_power_w],
+  ];
+  ui.cardPads.innerHTML = pads
+    .map(([label, w]) =>
+      '<div class="pad"><span class="pad-label">' + label + '</span><span class="pad-val">' +
+      fmtPower(w) + "<small>W</small></span></div>"
+    )
+    .join("");
+
+  ui.cardIds.textContent = [
+    id.mac_or_id,
+    id.serial,
+    client?.family ? "GATT " + client.family : null,
+  ].filter(Boolean).join(" · ") || "—";
+}
+
 function renderIdentity(identity) {
-  if (!identity) { ui.identity.innerHTML = "<p class='muted'>No identity yet</p>"; return; }
+  if (!identity) {
+    ui.identity.innerHTML = "<p class='muted'>No identity yet</p>";
+    renderDeviceCard(null, null, { connected: !!client });
+    return;
+  }
   ui.identity.innerHTML =
     "<dl><dt>Product</dt><dd>" + escapeHtml(identity.product_name || "—") +
     "</dd><dt>Firmware</dt><dd>" + escapeHtml(identity.firmware || "—") +
     "</dd><dt>Serial</dt><dd>" + escapeHtml(identity.serial || "—") +
-    "</dd><dt>MAC</dt><dd>" + escapeHtml(identity.mac_or_id || "—") + "</dd></dl>";
+    "</dd><dt>MAC</dt><dd>" + escapeHtml(identity.mac_or_id || "—") +
+    "</dd><dt>Art</dt><dd>" + escapeHtml(resolveArt(identity).label) + "</dd></dl>";
+  const parsed = client?.telemetry ? parseTelemetry(client.telemetry) : null;
+  renderDeviceCard(identity, parsed, { connected: true, negotiated: !!client?.sharedSecret });
 }
+
 function renderTelemetry(tlv, cmd) {
-  if (!tlv) { ui.telemetry.innerHTML = "<p class='muted'>No telemetry yet</p>"; return; }
+  if (!tlv) {
+    ui.telemetry.innerHTML = "<p class='muted'>No telemetry yet</p>";
+    return;
+  }
   const parsed = parseTelemetry(tlv);
+  renderDeviceCard(lastIdentity || client?.identity, parsed, {
+    connected: true,
+    negotiated: true,
+  });
   const rows = Object.entries(parsed)
     .map(([k, v]) => "<tr><th>" + escapeHtml(k) + "</th><td>" + escapeHtml(v == null ? "—" : String(v)) + "</td></tr>")
     .join("");
@@ -628,13 +826,17 @@ function renderTelemetry(tlv, cmd) {
     "<p class='muted'>cmd " + escapeHtml(cmd || "?") + "</p><table>" + rows +
     "</table><details><summary>Raw TLV</summary><div class='raw'>" + raw + "</div></details>";
 }
+
 function setConnected(connected, negotiated) {
+  online = connected;
   ui.btnConnect.disabled = connected;
   ui.btnConnectAll.disabled = connected;
   ui.btnConfer.disabled = !connected || negotiated;
   ui.btnSubscribe.disabled = !negotiated;
   ui.btnDisconnect.disabled = !connected;
+  ui.btnRefresh.disabled = !negotiated;
 }
+
 function isFileOrigin() {
   return location.protocol === "file:";
 }
@@ -656,6 +858,17 @@ function checkSupport() {
   ui.btnConnectAll.disabled = !ok;
 }
 
+function makeClient() {
+  return new AnkerWebBleClient({
+    log,
+    onIdentity: (identity) => renderIdentity(identity),
+    onTelemetry: (tlv, cmd) => {
+      renderTelemetry(tlv, cmd);
+      setStatus("Telemetry received", "ok");
+    },
+  });
+}
+
 async function runConfer() {
   if (!client) return;
   try {
@@ -667,14 +880,6 @@ async function runConfer() {
     setStatus("Session ready", "ok");
     await client.subscribeTelemetry();
     setStatus("Subscribed — waiting for telemetry…", "ok");
-    const started = Date.now();
-    const timer = setInterval(() => {
-      if (client && client.telemetry) {
-        renderTelemetry(client.telemetry, client.telemetryCmd);
-        setStatus("Telemetry received", "ok");
-      }
-      if (!client || Date.now() - started > 15000) clearInterval(timer);
-    }, 400);
   } catch (err) {
     log("Confer error: " + (err.message || err));
     setStatus("Confer failed", "bad");
@@ -689,15 +894,22 @@ async function connectFlow(acceptAll) {
   }
   try {
     setStatus("Connecting…", "busy");
-    client = new AnkerWebBleClient({ log });
+    client = makeClient();
     await client.requestAndConnect({ acceptAll });
     setConnected(true, false);
+    renderDeviceCard(
+      { product_name: client.device.name },
+      null,
+      { connected: true }
+    );
     setStatus("Connected: " + (client.device.name || "device"), "ok");
     await runConfer();
   } catch (err) {
     log("Error: " + (err.message || err));
     setStatus("Connect failed", "bad");
     setConnected(false);
+    online = false;
+    renderDeviceCard(null, null);
   }
 }
 
@@ -712,11 +924,24 @@ ui.btnSubscribe.addEventListener("click", async () => {
     log("Subscribe error: " + (err.message || err));
   }
 });
+ui.btnRefresh.addEventListener("click", async () => {
+  try {
+    await client.subscribeTelemetry();
+    setStatus("Refresh sent — waiting…", "busy");
+  } catch (err) {
+    log("Refresh error: " + (err.message || err));
+  }
+});
 ui.btnDisconnect.addEventListener("click", async () => {
   try { await client && client.disconnect(); }
   finally {
     client = null;
+    lastIdentity = null;
+    online = false;
     setConnected(false);
+    renderIdentity(null);
+    renderTelemetry(null);
+    renderDeviceCard(null, null);
     setStatus("Disconnected");
   }
 });
@@ -726,6 +951,7 @@ checkSupport();
 setConnected(false);
 renderIdentity(null);
 renderTelemetry(null);
+renderDeviceCard(null, null);
 setStatus("Idle");
     </script>
   </body>

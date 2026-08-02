@@ -98,7 +98,7 @@ More: [poc/README.md](poc/README.md)
 
 Chrome / Edge only. Prefer the hosted GitHub Pages build (HTTPS + Web Bluetooth):
 
-`https://<owner>.github.io/<repo>/`
+**[https://t-rex-xp.github.io/Anker-BLE/](https://t-rex-xp.github.io/Anker-BLE/)**
 
 Locally:
 
@@ -119,7 +119,8 @@ More: [web/README.md](web/README.md)
 
 ### One-time repo setup
 
-1. **Settings → Pages → Build and deployment → Source: GitHub Actions**
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions**  
+   (Already enabled for this repo; URL: https://t-rex-xp.github.io/Anker-BLE/)
 2. Ensure Actions are allowed to write (default fine for public repos)
 
 ### Cut a release
