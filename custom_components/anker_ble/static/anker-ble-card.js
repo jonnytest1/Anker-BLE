@@ -73,6 +73,8 @@ class AnkerBleCard extends HTMLElement {
 
     const blob = `${product || ""} ${serial || ""}`.toLowerCase();
     const map = [
+      ["a2687", "a2687.png"],
+      ["ashd", "a2687.png"],
       ["a110b", "a110b.png"],
       ["a110g", "a110g.png"],
       ["a110a", "a110a.png"],
@@ -82,15 +84,16 @@ class AnkerBleCard extends HTMLElement {
       ["a1772", "a1772.png"],
       ["a1771", "a1771.png"],
       ["a1770", "a1770.png"],
-      ["ashd", "a110a.png"],
-      ["charging", "a110a.png"],
+      ["charging", "a2687.png"],
+      ["160w", "a2687.png"],
+      ["prime charger", "a2687.png"],
       ["maggo", "a110a.png"],
       ["solix", "a1770.png"],
     ];
     for (const [hint, file] of map) {
       if (blob.includes(hint)) return `/anker_ble_static/images/${file}`;
     }
-    return "/anker_ble_static/images/default.png";
+    return "/anker_ble_static/images/a2687.png";
   }
 
   _fmtPower(stateObj) {
@@ -129,7 +132,7 @@ class AnkerBleCard extends HTMLElement {
       .map((id, i) => {
         const st = this._state(id);
         if (!st || st.state === "unavailable" || st.state === "unknown") return "";
-        return `<div class="pad"><span class="pad-label">Pad ${i + 1}</span><span class="pad-val">${this._fmtPower(st)}<small>W</small></span></div>`;
+        return `<div class="pad"><span class="pad-label">Port ${i + 1}</span><span class="pad-val">${this._fmtPower(st)}<small>W</small></span></div>`;
       })
       .join("");
 
@@ -313,6 +316,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "anker-ble-card",
   name: "Anker BLE Device",
-  description: "MagGo / Solix style device card with product artwork and pad power",
+  description: "Anker Prime / MagGo / Solix device card with product art and port power",
   preview: true,
 });

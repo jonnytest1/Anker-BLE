@@ -35,9 +35,9 @@
   "entity": {
     "sensor": {
       "power_out": { "name": "Power out" },
-      "pad_1_power": { "name": "Pad 1 power" },
-      "pad_2_power": { "name": "Pad 2 power" },
-      "pad_3_power": { "name": "Pad 3 power" },
+      "pad_1_power": { "name": "Port 1 power" },
+      "pad_2_power": { "name": "Port 2 power" },
+      "pad_3_power": { "name": "Port 3 power" },
       "battery": { "name": "Battery" },
       "serial": { "name": "Serial number" },
       "firmware": { "name": "Firmware" },

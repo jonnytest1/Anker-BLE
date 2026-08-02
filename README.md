@@ -20,7 +20,9 @@ Derived from Anker app `com.anker.charging` **3.22.0**. Not affiliated with Anke
 
 Full write-up: [docs/bluetooth-protocol.md](docs/bluetooth-protocol.md)
 
-Verified live against MagGo-style “Charging” hardware (serial `ASHDJVV1F52301602`, family `8C85`).
+Verified live against **Anker Prime Charger 160W (A2687)** — serial `ASHDJVV1F52301602`, GATT `8C85`.
+
+Full device catalog: [docs/bluetooth-devices.md](docs/bluetooth-devices.md)
 
 ---
 
@@ -55,8 +57,8 @@ Restart Home Assistant, then add **Anker BLE**.
 | Entity | Notes |
 |--------|--------|
 | Product / Firmware / Serial | From confer identity |
-| Power out, Pad 1–3 power | MagGo-style TLV when present |
-| Battery % | Power stations (`bb`) |
+| Power out, Port 1–3 power | Prime charger / MagGo TLV (USB-C ports) |
+| Battery % | Power banks / stations (`bb`) when present |
 | Online / Charging | Binary sensors |
 
 Details: [custom_components/anker_ble/README.md](custom_components/anker_ble/README.md)

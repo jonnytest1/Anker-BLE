@@ -64,8 +64,9 @@ See [lovelace.md](lovelace.md) for options and troubleshooting.
 
 ## Notes
 
-- Verified against MagGo-style `Charging` devices (`8C85` GATT, Solix CBC confer).
-- Power-station AC/DC switches are not exposed yet (sensors-first).
+- Verified against **Anker Prime Charger 160W (A2687)** (`Charging` / `ASHD…`, `8C85` GATT).
+- Sensors are **port power** oriented (USB-C1–C3); battery % only when the device reports it.
+- Power-station AC/DC switches are not exposed yet.
 - Keep the host Bluetooth adapter free; overlapping connections from the phone app will contend.
 - Product images are unofficial redistributions of app assets for local UI only.
 ## Troubleshooting

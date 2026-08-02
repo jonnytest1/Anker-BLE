@@ -177,8 +177,8 @@
         </p>
         <h1>Browser client</h1>
         <p class="lede">
-          Same MagGo-style device view as the Home Assistant card — product art,
-          power, pads, charging status — over Web Bluetooth.
+          Same device view as the Home Assistant card — Prime charger / MagGo art,
+          power, USB-C ports, charging status — over Web Bluetooth.
         </p>
         <div id="file-banner" class="banner">
           You opened this as <code>file://</code>. Serve over HTTP:
@@ -204,13 +204,13 @@
               <span class="chip">Idle</span>
             </div>
             <div class="pads" id="card-pads">
-              <div class="pad"><span class="pad-label">Pad 1</span><span class="pad-val">—<small>W</small></span></div>
-              <div class="pad"><span class="pad-label">Pad 2</span><span class="pad-val">—<small>W</small></span></div>
-              <div class="pad"><span class="pad-label">Pad 3</span><span class="pad-val">—<small>W</small></span></div>
+              <div class="pad"><span class="pad-label">Port 1</span><span class="pad-val">—<small>W</small></span></div>
+              <div class="pad"><span class="pad-label">Port 2</span><span class="pad-val">—<small>W</small></span></div>
+              <div class="pad"><span class="pad-label">Port 3</span><span class="pad-val">—<small>W</small></span></div>
             </div>
           </div>
           <div class="device-hero">
-            <img id="card-image" src="./images/default.png" alt="Anker device" />
+            <img id="card-image" src="./images/a2687.png" alt="Anker device" />
           </div>
         </div>
         <div class="device-foot">
@@ -667,19 +667,21 @@ class AnkerWebBleClient {
 
 /* ---------- Product art (mirrors HA product_art.py) ---------- */
 const PRODUCT_ART = {
-  a110a: { hero: "a110a.png", label: "MagGo Pad A110A" },
-  a110b: { hero: "a110b.png", label: "MagGo Pad A110B" },
-  a110g: { hero: "a110g.png", label: "MagGo Pad A110G" },
+  a2687: { hero: "a2687.png", label: "Anker Prime Charger 160W" },
+  a110a: { hero: "a110a.png", label: "Prime Power Bank A110A" },
+  a110b: { hero: "a110b.png", label: "Prime Power Bank A110B" },
+  a110g: { hero: "a110g.png", label: "MagGo / Prime A110G" },
   a1340: { hero: "a1340.png", label: "Anker Charger A1340" },
   a1341: { hero: "a1341.png", label: "Anker Charger A1341" },
-  a1903: { hero: "a1903.png", label: "MagGo Battery A1903" },
+  a1903: { hero: "a1903.png", label: "Prime Charging Base A1903" },
   a1770: { hero: "a1770.png", label: "Solix A1770" },
   a1771: { hero: "a1771.png", label: "Solix A1771" },
   a1772: { hero: "a1772.png", label: "Solix A1772" },
-  default: { hero: "default.png", label: "Anker Device" },
+  default: { hero: "a2687.png", label: "Anker Charger" },
 };
 const ART_HINTS = [
-  ["ashd", "a110a"], ["a110a", "a110a"], ["a110b", "a110b"], ["a110g", "a110g"],
+  ["a2687", "a2687"], ["ashd", "a2687"],
+  ["a110a", "a110a"], ["a110b", "a110b"], ["a110g", "a110g"],
   ["a1340", "a1340"], ["a1341", "a1341"], ["a1903", "a1903"],
   ["a1770", "a1770"], ["a1771", "a1771"], ["a1772", "a1772"],
 ];
@@ -691,7 +693,9 @@ function resolveArt(identity) {
     if (blob.includes(hint)) return PRODUCT_ART[key];
   }
   const soft = [identity?.product_name, identity?.serial].filter(Boolean).join(" ").toLowerCase();
-  if (soft.includes("charging") || soft.includes("maggo")) return PRODUCT_ART.a110a;
+  if (soft.includes("prime charger") || soft.includes("160w")) return PRODUCT_ART.a2687;
+  if (soft.includes("charging") && !soft.includes("base") && !soft.includes("bank")) return PRODUCT_ART.a2687;
+  if (soft.includes("maggo") || soft.includes("power bank")) return PRODUCT_ART.a110a;
   if (soft.includes("solix")) return PRODUCT_ART.a1770;
   return PRODUCT_ART.default;
 }
@@ -774,9 +778,9 @@ function renderDeviceCard(identity, parsed, { connected = false, negotiated = fa
   ui.cardChips.innerHTML = chips.join("");
 
   const pads = [
-    ["Pad 1", parsed?.pad_1_power_w],
-    ["Pad 2", parsed?.pad_2_power_w],
-    ["Pad 3", parsed?.pad_3_power_w],
+    ["Port 1", parsed?.pad_1_power_w],
+    ["Port 2", parsed?.pad_2_power_w],
+    ["Port 3", parsed?.pad_3_power_w],
   ];
   ui.cardPads.innerHTML = pads
     .map(([label, w]) =>
