@@ -11,10 +11,14 @@
   ],
   "codeowners": ["@T-REX-XP"],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": ["bluetooth"],
   "documentation": "https://github.com/T-REX-XP/Anker-BLE/blob/master/README.md",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/T-REX-XP/Anker-BLE/issues",
-  "requirements": ["cryptography>=41.0.0", "pycryptodome>=3.19.0"],
-  "version": "0.2.0"
+  "requirements": [
+    "bleak-retry-connector>=3.5.0",
+    "cryptography>=41.0.0",
+    "pycryptodome>=3.19.0"
+  ],
+  "version": "0.2.1"
 }

@@ -131,14 +131,36 @@ class AnkerBleClient:
     def negotiated(self) -> bool:
         return self.connected and self._shared_secret is not None
 
-    async def connect(self, timeout: float = 20.0) -> None:
+    async def connect(
+        self,
+        timeout: float = 20.0,
+        *,
+        use_retry_connector: bool = False,
+        connect_name: str | None = None,
+    ) -> None:
         kwargs: dict = {"timeout": timeout}
         if self._adapter:
             kwargs["adapter"] = self._adapter
-        address_or_device = self._device or self.address
-        self._client = BleakClient(address_or_device, **kwargs)
-        log.info("connecting to %s (%s)…", self.address, self.name)
-        await self._client.connect()
+
+        if use_retry_connector and self._device is not None:
+            # Home Assistant path: use scanner-backed BLEDevice + retry connector.
+            from bleak_retry_connector import (
+                BleakClientWithServiceCache,
+                establish_connection,
+            )
+
+            self._client = await establish_connection(
+                BleakClientWithServiceCache,
+                self._device,
+                connect_name or self.name or self.address,
+                max_attempts=5,
+            )
+        else:
+            address_or_device = self._device or self.address
+            self._client = BleakClient(address_or_device, **kwargs)
+            log.info("connecting to %s (%s)…", self.address, self.name)
+            await self._client.connect()
+
         await self._resolve_characteristics()
         log.info(
             "connected  family=%s  write=%s  notify=%s",
@@ -433,11 +455,16 @@ class AnkerBleClient:
         listen_seconds: float = 8.0,
         subscribe: bool = True,
         confer_timeout: float = 60.0,
+        use_retry_connector: bool = False,
+        connect_name: str | None = None,
     ) -> SessionSnapshot:
         """Connect → confer → optional subscribe → collect telemetry → disconnect."""
         already = self.connected
         if not already:
-            await self.connect()
+            await self.connect(
+                use_retry_connector=use_retry_connector,
+                connect_name=connect_name,
+            )
         try:
             ok = await self.start_confer(timeout=confer_timeout)
             if not ok:

@@ -68,3 +68,11 @@ See [lovelace.md](lovelace.md) for options and troubleshooting.
 - Power-station AC/DC switches are not exposed yet (sensors-first).
 - Keep the host Bluetooth adapter free; overlapping connections from the phone app will contend.
 - Product images are unofficial redistributions of app assets for local UI only.
+## Troubleshooting
+
+**“never seen by any scanner” / connection slot errors**
+
+1. Keep the device powered and within range of HA’s Bluetooth adapter or an ESPHome BLE proxy
+2. Close the official Anker app (it holds the BLE link)
+3. Wait for HA to see a fresh advertisement, then **Retry** the config entry
+4. v0.2.1+ connects via HA’s scanner + `bleak-retry-connector` (not a raw MAC connect)
