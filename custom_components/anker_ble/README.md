@@ -34,7 +34,9 @@ Close the official Anker phone app while HA is polling — it holds the BLE link
 
 ## Behaviour
 
-Every poll interval (default **120 s**):
+Setup completes immediately (entry leaves **Initializing** even if the charger is
+offline). Every poll interval (default **120 s**), and once in the background after
+setup:
 
 1. Resolve device via HA’s Bluetooth scanner (wait for advertisement if needed)
 2. Connect with `bleak-retry-connector`
@@ -42,6 +44,8 @@ Every poll interval (default **120 s**):
 4. Telemetry subscribe (`0x4200`)
 5. Listen briefly for encrypted session frames
 6. Disconnect
+
+Entities stay **unavailable** / Online=off until a poll succeeds.
 
 Options (integration → Configure): poll interval and listen window.
 

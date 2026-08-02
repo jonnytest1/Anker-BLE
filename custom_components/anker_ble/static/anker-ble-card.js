@@ -1,142 +1,258 @@
 /**
- * Anker BLE Lovelace card — MagGo / Solix style device widget.
- * Uses product art served from /anker_ble_static/images/
+ * Anker BLE Lovelace card — Prime charger / MagGo / Solix device widget.
+ * Art: /anker_ble_static/images/
  */
-class AnkerBleCard extends HTMLElement {
-  static getConfigElement() {
-    return document.createElement("anker-ble-card-editor");
+(() => {
+  const CARD_VERSION = "0.2.4";
+
+  function deepMerge(base, extra) {
+    return { ...base, ...extra };
   }
 
-  static getStubConfig(hass, entities) {
-    const power = entities.find((e) => e.includes("power_out"));
-    const device = power
-      ? hass.entities[power]?.device_id
-      : undefined;
-    return {
-      type: "custom:anker-ble-card",
-      entity: power || "",
-      name: "",
-    };
-  }
-
-  setConfig(config) {
-    if (!config || !config.entity) {
-      throw new Error("Specify an Anker BLE power entity (e.g. sensor.*_power_out)");
+  class AnkerBleCard extends HTMLElement {
+    static getConfigElement() {
+      return document.createElement("anker-ble-card-editor");
     }
-    this._config = {
-      show_pads: true,
-      show_battery: true,
-      show_status: true,
-      ...config,
-    };
-    this._render();
-  }
 
-  set hass(hass) {
-    this._hass = hass;
-    this._render();
-  }
-
-  getCardSize() {
-    return 4;
-  }
-
-  _state(entityId) {
-    if (!entityId || !this._hass) return undefined;
-    return this._hass.states[entityId];
-  }
-
-  _related(base, suffix) {
-    if (!base) return undefined;
-    // sensor.foo_power_out → sensor.foo_pad_1_power
-    const replaced = base.replace(/_power_out$/, `_${suffix}`);
-    if (this._hass?.states[replaced]) return replaced;
-    // fallback: same device entities by suffix
-    const ent = this._hass?.entities?.[base];
-    const deviceId = ent?.device_id;
-    if (!deviceId) return undefined;
-    for (const [id, meta] of Object.entries(this._hass.entities || {})) {
-      if (meta.device_id === deviceId && id.endsWith(`_${suffix}`)) return id;
+    static getStubConfig(hass, entities, entitiesFallback) {
+      const list = entities || entitiesFallback || Object.keys(hass?.states || {});
+      const pick =
+        list.find((e) => /_power_out$/.test(e)) ||
+        list.find((e) => /pad_\d_power$/.test(e)) ||
+        list.find((e) => e.includes("anker_ble") && e.startsWith("sensor.")) ||
+        "";
+      return {
+        type: "custom:anker-ble-card",
+        entity: pick,
+        name: "",
+        show_ports: true,
+        show_battery: true,
+        show_status: true,
+      };
     }
-    return undefined;
-  }
 
-  _imageUrl(powerEntity) {
-    if (this._config.image) return this._config.image;
-    const productId = this._related(powerEntity, "product_name");
-    const serialId = this._related(powerEntity, "serial");
-    const product = this._state(productId)?.state;
-    const serial = this._state(serialId)?.state;
-    const imageId = this._related(powerEntity, "device_image");
-    const pic = this._state(imageId)?.attributes?.entity_picture;
-    if (pic) return pic;
-
-    const blob = `${product || ""} ${serial || ""}`.toLowerCase();
-    const map = [
-      ["a2687", "a2687.png"],
-      ["ashd", "a2687.png"],
-      ["a110b", "a110b.png"],
-      ["a110g", "a110g.png"],
-      ["a110a", "a110a.png"],
-      ["a1341", "a1341.png"],
-      ["a1340", "a1340.png"],
-      ["a1903", "a1903.png"],
-      ["a1772", "a1772.png"],
-      ["a1771", "a1771.png"],
-      ["a1770", "a1770.png"],
-      ["charging", "a2687.png"],
-      ["160w", "a2687.png"],
-      ["prime charger", "a2687.png"],
-      ["maggo", "a110a.png"],
-      ["solix", "a1770.png"],
-    ];
-    for (const [hint, file] of map) {
-      if (blob.includes(hint)) return `/anker_ble_static/images/${file}`;
+    setConfig(config) {
+      // Do not throw while the visual editor is still empty — show a placeholder.
+      this._config = deepMerge(
+        {
+          entity: "",
+          name: "",
+          show_ports: true,
+          show_pads: true, // legacy alias
+          show_battery: true,
+          show_status: true,
+        },
+        config || {}
+      );
+      this._render();
     }
-    return "/anker_ble_static/images/a2687.png";
-  }
 
-  _fmtPower(stateObj) {
-    if (!stateObj || stateObj.state === "unavailable" || stateObj.state === "unknown") {
-      return "—";
+    set hass(hass) {
+      this._hass = hass;
+      this._render();
     }
-    const n = Number(stateObj.state);
-    if (Number.isNaN(n)) return stateObj.state;
-    return n >= 10 ? n.toFixed(1) : n.toFixed(2);
-  }
 
-  _render() {
-    if (!this._config) return;
-    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    getCardSize() {
+      return 4;
+    }
 
-    const powerId = this._config.entity;
-    const power = this._state(powerId);
-    const name =
-      this._config.name ||
-      power?.attributes?.friendly_name?.replace(/ Power out$/i, "") ||
-      "Anker";
-    const onlineId = this._related(powerId, "online");
-    const chargingId = this._related(powerId, "charging");
-    const batteryId = this._related(powerId, "battery");
-    const padIds = ["pad_1_power", "pad_2_power", "pad_3_power"].map((s) =>
-      this._related(powerId, s)
-    );
-    const online = this._state(onlineId);
-    const charging = this._state(chargingId);
-    const battery = this._state(batteryId);
-    const img = this._imageUrl(powerId);
-    const onlineOn = online?.state === "on";
-    const chargingOn = charging?.state === "on";
+    _state(entityId) {
+      if (!entityId || !this._hass) return undefined;
+      return this._hass.states[entityId];
+    }
 
-    const pads = padIds
-      .map((id, i) => {
-        const st = this._state(id);
-        if (!st || st.state === "unavailable" || st.state === "unknown") return "";
-        return `<div class="pad"><span class="pad-label">Port ${i + 1}</span><span class="pad-val">${this._fmtPower(st)}<small>W</small></span></div>`;
-      })
-      .join("");
+    _deviceId(entityId) {
+      return this._hass?.entities?.[entityId]?.device_id;
+    }
 
-    this.shadowRoot.innerHTML = `
+    /** Map card suffixes → HA unique_id / entity_id endings used by the integration. */
+    _suffixCandidates(suffix) {
+      const map = {
+        power_out: ["power_out", "power_out_w"],
+        pad_1_power: ["pad_1_power", "pad_1_power_w"],
+        pad_2_power: ["pad_2_power", "pad_2_power_w"],
+        pad_3_power: ["pad_3_power", "pad_3_power_w"],
+        battery: ["battery", "battery_percent"],
+        online: ["online"],
+        charging: ["charging"],
+        serial: ["serial"],
+        firmware: ["firmware"],
+        product_name: ["product_name"],
+        device_image: ["device_image"],
+        telemetry_cmd: ["telemetry_cmd"],
+      };
+      return map[suffix] || [suffix];
+    }
+
+    /** Find another entity on the same device by unique_id / entity_id suffix. */
+    _related(base, suffix) {
+      if (!base || !this._hass) return undefined;
+      const candidates = this._suffixCandidates(suffix);
+
+      for (const c of candidates) {
+        const direct = base.replace(/_power_out$/, `_${c}`);
+        if (direct !== base && this._hass.states[direct]) return direct;
+      }
+
+      const deviceId = this._deviceId(base);
+      if (deviceId) {
+        for (const [id, meta] of Object.entries(this._hass.entities || {})) {
+          if (meta.device_id !== deviceId) continue;
+          for (const c of candidates) {
+            if (
+              id.endsWith(`_${c}`) ||
+              id.endsWith(`.${c}`) ||
+              (meta.unique_id && String(meta.unique_id).endsWith(`_${c}`))
+            ) {
+              return id;
+            }
+          }
+        }
+      }
+
+      // Fallback: unique_id address prefix (MAC_…) shared with siblings
+      const ent = this._hass.entities?.[base];
+      const uid = ent?.unique_id && String(ent.unique_id);
+      if (uid) {
+        // unique_ids are "{mac}_{key}" — mac may contain colons/underscores; match by shared start + candidate end
+        for (const [id, meta] of Object.entries(this._hass.entities || {})) {
+          const other = meta.unique_id && String(meta.unique_id);
+          if (!other) continue;
+          for (const c of candidates) {
+            if (!other.endsWith(`_${c}`)) continue;
+            // Same device if unique_ids share a long common prefix before the last key segment(s)
+            const baseStem = uid.replace(/_(?:power_out_w|pad_[123]_power_w|battery_percent|online|charging|serial|firmware|product_name|device_image|telemetry_cmd|power_out|pad_[123]_power|battery)$/, "");
+            const otherStem = other.slice(0, other.length - c.length - 1);
+            if (baseStem && baseStem === otherStem && this._hass.states[id]) return id;
+          }
+        }
+      }
+      return undefined;
+    }
+
+    /** Accept power_out or any sibling entity from the Anker BLE device. */
+    _resolvePowerEntity(entityId) {
+      if (!entityId) return "";
+      if (/_power_out$/.test(entityId)) return entityId;
+      const power = this._related(entityId, "power_out");
+      return power || entityId;
+    }
+
+    _imageUrl(powerEntity) {
+      if (this._config.image) return this._config.image;
+      const productId = this._related(powerEntity, "product_name");
+      const serialId = this._related(powerEntity, "serial");
+      const product = this._state(productId)?.state;
+      const serial = this._state(serialId)?.state;
+      const imageId = this._related(powerEntity, "device_image");
+      const pic = this._state(imageId)?.attributes?.entity_picture;
+      if (pic) return pic;
+
+      const title = this._config.name || "";
+      const blob = `${product || ""} ${serial || ""} ${title} ${powerEntity}`.toLowerCase();
+      const map = [
+        ["a2687", "a2687.png"],
+        ["ashd", "a2687.png"],
+        ["a110b", "a110b.png"],
+        ["a110g", "a110g.png"],
+        ["a110a", "a110a.png"],
+        ["a1341", "a1341.png"],
+        ["a1340", "a1340.png"],
+        ["a1903", "a1903.png"],
+        ["a1772", "a1772.png"],
+        ["a1771", "a1771.png"],
+        ["a1770", "a1770.png"],
+        ["charging", "a2687.png"],
+        ["160w", "a2687.png"],
+        ["prime", "a2687.png"],
+        ["maggo", "a110a.png"],
+        ["solix", "a1770.png"],
+      ];
+      for (const [hint, file] of map) {
+        if (blob.includes(hint)) return `/anker_ble_static/images/${file}`;
+      }
+      return "/anker_ble_static/images/a2687.png";
+    }
+
+    _fmtPower(stateObj) {
+      if (!stateObj || stateObj.state === "unavailable" || stateObj.state === "unknown") {
+        return "—";
+      }
+      const n = Number(stateObj.state);
+      if (Number.isNaN(n)) return stateObj.state;
+      return n >= 10 ? n.toFixed(1) : n.toFixed(2);
+    }
+
+    _showPorts() {
+      if (this._config.show_ports === false) return false;
+      if (this._config.show_pads === false && this._config.show_ports == null) return false;
+      return true;
+    }
+
+    _renderPlaceholder(message) {
+      if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+      this.shadowRoot.innerHTML = `
+        <style>
+          ha-card {
+            padding: 1.25rem 1.35rem;
+            background: linear-gradient(165deg, #1a1f24 0%, #0e1114 100%);
+            color: #c5d0d6;
+            border-radius: 16px;
+          }
+          h3 { margin: 0 0 .4rem; color: #9af0e0; font-size: 1rem; }
+          p { margin: 0; line-height: 1.4; font-size: .92rem; }
+          code { color: #7fd9cb; }
+        </style>
+        <ha-card>
+          <h3>Anker BLE Device</h3>
+          <p>${this._esc(message)}</p>
+        </ha-card>
+      `;
+    }
+
+    _render() {
+      if (!this._config) return;
+      if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+
+      const rawEntity = (this._config.entity || "").trim();
+      if (!rawEntity) {
+        this._renderPlaceholder(
+          "Pick a Power out sensor (or any Anker BLE entity) in the card settings."
+        );
+        return;
+      }
+
+      const powerId = this._resolvePowerEntity(rawEntity);
+      const power = this._state(powerId);
+      const name =
+        this._config.name ||
+        power?.attributes?.friendly_name?.replace(/\s+Power out$/i, "") ||
+        this._state(this._related(powerId, "product_name"))?.state ||
+        "Anker";
+      const onlineId = this._related(powerId, "online") || this._related(rawEntity, "online");
+      const chargingId =
+        this._related(powerId, "charging") || this._related(rawEntity, "charging");
+      const batteryId =
+        this._related(powerId, "battery") || this._related(rawEntity, "battery");
+      const padIds = ["pad_1_power", "pad_2_power", "pad_3_power"].map(
+        (s) => this._related(powerId, s) || this._related(rawEntity, s)
+      );
+      const online = this._state(onlineId);
+      const charging = this._state(chargingId);
+      const battery = this._state(batteryId);
+      const img = this._imageUrl(powerId || rawEntity);
+      const onlineOn = online?.state === "on";
+      const chargingOn = charging?.state === "on";
+
+      const ports = padIds
+        .map((id, i) => {
+          const st = this._state(id);
+          const val = st ? this._fmtPower(st) : "—";
+          return `<div class="pad"><span class="pad-label">Port ${i + 1}</span><span class="pad-val">${val}<small>W</small></span></div>`;
+        })
+        .join("");
+
+      this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; }
         ha-card {
@@ -208,6 +324,7 @@ class AnkerBleCard extends HTMLElement {
         .foot {
           display: flex; justify-content: space-between; align-items: center;
           padding: 0 1.15rem 0.9rem; color: #7e8a91; font-size: .75rem; position: relative; z-index: 1;
+          gap: .5rem; flex-wrap: wrap;
         }
         button.refresh {
           appearance: none; border: 0; background: rgba(255,255,255,.06);
@@ -226,96 +343,237 @@ class AnkerBleCard extends HTMLElement {
             <h2 class="title">${this._esc(name)}</h2>
             <div class="power">${this._fmtPower(power)}<small>W</small></div>
             ${
-              this._config.show_status
+              this._config.show_status !== false
                 ? `<div class="chips">
                     <span class="chip ${onlineOn ? "on" : ""}">${onlineOn ? "Online" : "Offline"}</span>
                     <span class="chip ${chargingOn ? "on" : ""}">${chargingOn ? "Charging" : "Idle"}</span>
                     ${
-                      this._config.show_battery && battery && battery.state !== "unavailable" && battery.state !== "unknown"
+                      this._config.show_battery !== false &&
+                      battery &&
+                      battery.state !== "unavailable" &&
+                      battery.state !== "unknown"
                         ? `<span class="chip warn">${this._esc(battery.state)}%</span>`
                         : ""
                     }
                    </div>`
                 : ""
             }
-            ${this._config.show_pads && pads ? `<div class="pads">${pads}</div>` : ""}
+            ${this._showPorts() ? `<div class="pads">${ports}</div>` : ""}
           </div>
           <div class="hero">
             <img src="${this._esc(img)}" alt="${this._esc(name)}" />
           </div>
         </div>
         <div class="foot">
-          <span>${this._esc(powerId)}</span>
+          <span>${this._esc(powerId || rawEntity)}</span>
           <button class="refresh" type="button">Refresh</button>
         </div>
       </ha-card>
     `;
 
-    this.shadowRoot.querySelector("button.refresh")?.addEventListener("click", () => {
-      if (!this._hass || !powerId) return;
-      this._hass.callService("homeassistant", "update_entity", { entity_id: powerId });
-    });
+      this.shadowRoot.querySelector("button.refresh")?.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (!this._hass) return;
+        const targets = [powerId, rawEntity, ...padIds].filter(Boolean);
+        if (!targets.length) return;
+        this._hass.callService("homeassistant", "update_entity", {
+          entity_id: targets,
+        });
+      });
 
-    this.shadowRoot.querySelector("ha-card")?.addEventListener("click", (ev) => {
-      if (ev.target.closest("button")) return;
-      const event = new Event("hass-more-info", { bubbles: true, composed: true });
-      event.detail = { entityId: powerId };
-      this.dispatchEvent(event);
-    });
+      this.shadowRoot.querySelector("ha-card")?.addEventListener("click", (ev) => {
+        if (ev.target.closest("button")) return;
+        const event = new Event("hass-more-info", { bubbles: true, composed: true });
+        event.detail = { entityId: powerId || rawEntity };
+        this.dispatchEvent(event);
+      });
+    }
+
+    _esc(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll('"', "&quot;");
+    }
   }
 
-  _esc(s) {
-    return String(s ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll('"', "&quot;");
-  }
-}
+  class AnkerBleCardEditor extends HTMLElement {
+    setConfig(config) {
+      this._config = deepMerge(
+        {
+          entity: "",
+          name: "",
+          show_ports: true,
+          show_battery: true,
+          show_status: true,
+        },
+        config || {}
+      );
+      // Prefer show_ports; mirror legacy show_pads
+      if (config && config.show_pads != null && config.show_ports == null) {
+        this._config.show_ports = config.show_pads;
+      }
+      this._built = false;
+      this._render();
+    }
 
-class AnkerBleCardEditor extends HTMLElement {
-  setConfig(config) {
-    this._config = { ...config };
-    this._render();
-  }
-  set hass(hass) {
-    this._hass = hass;
-  }
-  _render() {
-    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-    this.shadowRoot.innerHTML = `
-      <div style="padding:8px 0;display:grid;gap:8px;font-family:var(--ha-font-family-body);">
-        <label>Power entity
-          <input id="entity" style="width:100%" value="${this._config.entity || ""}" />
-        </label>
-        <label>Name (optional)
-          <input id="name" style="width:100%" value="${this._config.name || ""}" />
-        </label>
-        <label><input id="pads" type="checkbox" ${this._config.show_pads !== false ? "checked" : ""}/> Show pads</label>
-        <label><input id="battery" type="checkbox" ${this._config.show_battery !== false ? "checked" : ""}/> Show battery</label>
-      </div>
-    `;
-    const fire = () => {
-      const cfg = {
-        ...this._config,
-        entity: this.shadowRoot.getElementById("entity").value.trim(),
-        name: this.shadowRoot.getElementById("name").value.trim(),
-        show_pads: this.shadowRoot.getElementById("pads").checked,
-        show_battery: this.shadowRoot.getElementById("battery").checked,
+    set hass(hass) {
+      this._hass = hass;
+      if (this._form) {
+        this._form.hass = hass;
+        return;
+      }
+      this._render();
+    }
+
+    _schema() {
+      return [
+        {
+          name: "entity",
+          selector: {
+            entity: {
+              domain: ["sensor", "binary_sensor", "image"],
+            },
+          },
+        },
+        { name: "name", selector: { text: {} } },
+        {
+          name: "show_ports",
+          selector: { boolean: {} },
+        },
+        {
+          name: "show_battery",
+          selector: { boolean: {} },
+        },
+        {
+          name: "show_status",
+          selector: { boolean: {} },
+        },
+      ];
+    }
+
+    _label(schema) {
+      const labels = {
+        entity: "Anker BLE entity (Power out preferred)",
+        name: "Name (optional)",
+        show_ports: "Show Port 1–3",
+        show_battery: "Show battery",
+        show_status: "Show status chips",
       };
-      this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg } }));
-    };
-    this.shadowRoot.querySelectorAll("input").forEach((el) => el.addEventListener("change", fire));
-    this.shadowRoot.querySelectorAll("input").forEach((el) => el.addEventListener("input", fire));
+      return labels[schema.name] || schema.name;
+    }
+
+    _render() {
+      if (!this._config || this._built) return;
+      if (!this._hass) return;
+      this._built = true;
+      this._form = null;
+      // Use light DOM so ha-form / entity picker work (broken inside shadow roots).
+      this.innerHTML = `
+        <div class="anker-ble-editor" style="padding:4px 0 8px">
+          <div style="color:var(--secondary-text-color);font-size:.85rem;margin:.35rem 0 .75rem;line-height:1.35">
+            Choose <code>sensor.*_power_out</code> when available, or any other entity from the Anker BLE device.
+          </div>
+          <div id="anker-ble-form-host"></div>
+        </div>
+      `;
+
+      const host = this.querySelector("#anker-ble-form-host");
+      if (!host) return;
+
+      try {
+        const form = document.createElement("ha-form");
+        form.hass = this._hass;
+        form.data = {
+          entity: this._config.entity || "",
+          name: this._config.name || "",
+          show_ports: this._config.show_ports !== false,
+          show_battery: this._config.show_battery !== false,
+          show_status: this._config.show_status !== false,
+        };
+        form.schema = this._schema();
+        form.computeLabel = (schema) => this._label(schema);
+        form.addEventListener("value-changed", (ev) => {
+          const value = ev.detail?.value || {};
+          const next = {
+            ...this._config,
+            ...value,
+            show_pads: value.show_ports !== false,
+          };
+          this._config = next;
+          this.dispatchEvent(
+            new CustomEvent("config-changed", { detail: { config: next } })
+          );
+        });
+        this._form = form;
+        host.appendChild(form);
+      } catch (err) {
+        host.innerHTML = `
+          <div style="display:grid;gap:10px">
+            <label>Anker BLE entity
+              <input id="entity" type="text" style="width:100%" placeholder="sensor.xxx_power_out"
+                value="${this._esc(this._config.entity || "")}" />
+            </label>
+            <label>Name (optional)
+              <input id="name" type="text" style="width:100%" value="${this._esc(this._config.name || "")}" />
+            </label>
+            <label><input id="ports" type="checkbox" ${this._config.show_ports !== false ? "checked" : ""}/> Show Port 1–3</label>
+            <label><input id="battery" type="checkbox" ${this._config.show_battery !== false ? "checked" : ""}/> Show battery</label>
+            <label><input id="status" type="checkbox" ${this._config.show_status !== false ? "checked" : ""}/> Show status chips</label>
+          </div>
+        `;
+        const fire = () => {
+          const next = {
+            ...this._config,
+            entity: host.querySelector("#entity").value.trim(),
+            name: host.querySelector("#name").value.trim(),
+            show_ports: host.querySelector("#ports").checked,
+            show_battery: host.querySelector("#battery").checked,
+            show_status: host.querySelector("#status").checked,
+          };
+          next.show_pads = next.show_ports;
+          this._config = next;
+          this.dispatchEvent(
+            new CustomEvent("config-changed", { detail: { config: next } })
+          );
+        };
+        host.querySelectorAll("input").forEach((el) => {
+          el.addEventListener("change", fire);
+          el.addEventListener("input", fire);
+        });
+      }
+    }
+
+    _esc(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll('"', "&quot;");
+    }
   }
-}
 
-customElements.define("anker-ble-card", AnkerBleCard);
-customElements.define("anker-ble-card-editor", AnkerBleCardEditor);
+  if (!customElements.get("anker-ble-card")) {
+    customElements.define("anker-ble-card", AnkerBleCard);
+  }
+  if (!customElements.get("anker-ble-card-editor")) {
+    customElements.define("anker-ble-card-editor", AnkerBleCardEditor);
+  }
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "anker-ble-card",
-  name: "Anker BLE Device",
-  description: "Anker Prime / MagGo / Solix device card with product art and port power",
-  preview: true,
-});
+  window.customCards = window.customCards || [];
+  if (!window.customCards.some((c) => c.type === "anker-ble-card")) {
+    window.customCards.push({
+      type: "anker-ble-card",
+      name: "Anker BLE Device",
+      description:
+        "Prime charger / MagGo / Solix card with product art and USB-C port power",
+      preview: true,
+      documentationURL: "https://github.com/T-REX-XP/Anker-BLE/blob/main/custom_components/anker_ble/lovelace.md",
+    });
+  }
+
+  console.info(
+    `%c Anker BLE Card %c ${CARD_VERSION} `,
+    "background:#00bea4;color:#062016;font-weight:700;padding:2px 6px;border-radius:4px 0 0 4px",
+    "background:#1a1f24;color:#9af0e0;padding:2px 6px;border-radius:0 4px 4px 0"
+  );
+})();

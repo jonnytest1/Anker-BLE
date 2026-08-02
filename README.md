@@ -1,5 +1,9 @@
 # Anker BLE
 
+[![Validate](https://github.com/T-REX-XP/Anker-BLE/actions/workflows/validate.yml/badge.svg)](https://github.com/T-REX-XP/Anker-BLE/actions/workflows/validate.yml)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
+[![Release](https://github.com/T-REX-XP/Anker-BLE/actions/workflows/release.yml/badge.svg)](https://github.com/T-REX-XP/Anker-BLE/actions/workflows/release.yml)
+
 Unofficial reverse-engineering of Anker / Solix Bluetooth (FF09 ZX protocol), plus clients:
 
 | Piece | Path | Purpose |

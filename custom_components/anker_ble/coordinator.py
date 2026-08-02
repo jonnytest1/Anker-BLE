@@ -31,7 +31,26 @@ from .protocol.telemetry import identity_as_dict, parse_telemetry
 _LOGGER = logging.getLogger(__name__)
 
 # How long to wait for an advertisement before failing a poll.
-_SCAN_WAIT_SECONDS = 25.0
+_SCAN_WAIT_SECONDS = 20.0
+
+
+def _empty_snapshot(address: str, name: str | None = None) -> dict[str, Any]:
+    """Placeholder data so entities can load before the first successful poll."""
+    identity: dict[str, str | None] = {
+        "product_name": name,
+        "firmware": None,
+        "serial": name if name and name.startswith("ASHD") else None,
+        "mac_or_id": address,
+    }
+    return {
+        "address": address,
+        "identity": identity,
+        "telemetry_cmd": None,
+        "notifications": 0,
+        "parsed": {},
+        "tlv_keys": [],
+        "online": False,
+    }
 
 
 class AnkerBleCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -56,6 +75,8 @@ class AnkerBleCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             name=f"{DOMAIN}_{self.address}",
             update_interval=timedelta(seconds=int(poll)),
         )
+        # Avoid blocking setup / “Initializing” on BLE reachability.
+        self.data = _empty_snapshot(self.address, entry.data.get(CONF_NAME))
 
     async def _async_get_ble_device(self) -> BLEDevice:
         """Resolve a connectable BLEDevice from HA's scanner cache (with wait)."""
@@ -81,7 +102,6 @@ class AnkerBleCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         detail = ""
         try:
-            # HA 2025+/2026 diagnostics helper (signature varies by version).
             reachability = getattr(
                 bluetooth, "async_address_reachability_diagnostics", None
             )

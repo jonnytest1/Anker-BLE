@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -17,8 +18,19 @@ _LOGGER = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
 CARD_JS = "anker-ble-card.js"
-CARD_URL = f"{STATIC_URL_PREFIX}/{CARD_JS}"
 _DATA_KEY = f"{DOMAIN}_frontend"
+
+
+def _card_version() -> str:
+    try:
+        manifest = json.loads((Path(__file__).parent / "manifest.json").read_text())
+        return str(manifest.get("version", "0"))
+    except Exception:  # noqa: BLE001
+        return "0"
+
+
+def card_url() -> str:
+    return f"{STATIC_URL_PREFIX}/{CARD_JS}?v={_card_version()}"
 
 
 async def async_setup_frontend(hass: HomeAssistant) -> None:
@@ -32,8 +44,9 @@ async def async_setup_frontend(hass: HomeAssistant) -> None:
         ]
     )
 
+    url = card_url()
     # Load as ES module (es5=False → frontend_extra_module_url).
-    add_extra_js_url(hass, CARD_URL)
+    add_extra_js_url(hass, url)
 
     async def _register_resource(_now=None) -> None:
         try:
@@ -48,10 +61,19 @@ async def async_setup_frontend(hass: HomeAssistant) -> None:
             if resources is None or not isinstance(resources, ResourceStorageCollection):
                 return
             await resources.async_get_info()
-            if any(item.get("url") == CARD_URL for item in resources.async_items()):
+            existing = [
+                item
+                for item in resources.async_items()
+                if str(item.get("url", "")).startswith(f"{STATIC_URL_PREFIX}/{CARD_JS}")
+            ]
+            if existing:
+                # Refresh URL to bust browser cache after upgrades.
+                item = existing[0]
+                if item.get("url") != url:
+                    await resources.async_update_item(item["id"], {"url": url})
                 return
-            await resources.async_create_item({"res_type": "module", "url": CARD_URL})
-            _LOGGER.info("Registered Lovelace resource %s", CARD_URL)
+            await resources.async_create_item({"res_type": "module", "url": url})
+            _LOGGER.info("Registered Lovelace resource %s", url)
         except Exception:  # noqa: BLE001
             _LOGGER.debug("Could not auto-register Lovelace resource", exc_info=True)
 

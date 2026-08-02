@@ -28,15 +28,24 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Anker BLE from a config entry."""
+    """Set up Anker BLE from a config entry.
+
+    Setup must not block on a successful BLE poll — otherwise the entry stays
+    in “Initializing” while the charger is offline / held by the phone app.
+    """
     await async_setup_frontend(hass)
 
     coordinator = AnkerBleCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
-
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+    # First poll in the background; entities stay unavailable until it succeeds.
+    hass.async_create_task(
+        coordinator.async_request_refresh(),
+        name=f"{DOMAIN}_{entry.entry_id}_first_poll",
+    )
     return True
 
 
