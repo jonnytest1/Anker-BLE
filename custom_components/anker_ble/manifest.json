@@ -1,7 +1,7 @@
 {
   "domain": "anker_ble",
   "name": "Anker BLE",
-  "after_dependencies": ["frontend", "lovelace"],
+  "after_dependencies": ["frontend"],
   "bluetooth": [
     {
       "service_uuid": "0000ff09-0000-1000-8000-00805f9b34fb"
@@ -12,7 +12,7 @@
   ],
   "codeowners": ["@T-REX-XP"],
   "config_flow": true,
-  "dependencies": ["bluetooth", "http"],
+  "dependencies": ["bluetooth", "http", "lovelace"],
   "documentation": "https://github.com/T-REX-XP/Anker-BLE/blob/master/README.md",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/T-REX-XP/Anker-BLE/issues",
@@ -21,5 +21,5 @@
     "cryptography>=41.0.0",
     "pycryptodome>=3.19.0"
   ],
-  "version": "0.2.8"
+  "version": "0.2.9"
 }

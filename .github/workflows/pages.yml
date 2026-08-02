@@ -1,7 +1,7 @@
 name: Pages
 
 # Deploy the Web Bluetooth client whenever web/ changes on the default branch.
-# Full releases (tags) also deploy via release.yml.
+# Tag releases skip Pages in release.yml (environment protection blocks tags).
 
 on:
   push:

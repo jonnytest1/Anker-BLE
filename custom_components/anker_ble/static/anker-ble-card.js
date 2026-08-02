@@ -3,7 +3,7 @@
  * Art: /anker_ble_static/images/
  */
 (() => {
-  const CARD_VERSION = "0.2.8";
+  const CARD_VERSION = "0.2.9";
   const DEMO_ENTITY = "sensor.anker_ble_demo_power_out";
   const DEMO = {
     name: "Prime Charger 160W",
