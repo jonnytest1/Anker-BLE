@@ -6,34 +6,31 @@ Protocol notes reverse-engineered from **Anker** app `com.anker.charging` **3.22
 |----------|-------------|
 | [bluetooth-protocol.md](./bluetooth-protocol.md) | Frame format, confer/crypto, TLV, lifecycle |
 | [bluetooth-gatt-uuids.md](./bluetooth-gatt-uuids.md) | GATT / discovery UUIDs found in the binary |
-| [bluetooth-devices.md](./bluetooth-devices.md) | Product SKU → Flutter BLE modules |
+| [bluetooth-devices.md](./bluetooth-devices.md) | Device catalog (A2687 Prime charger, banks, Solix, …) |
 | [bluetooth-source-map.md](./bluetooth-source-map.md) | Where code lives in the APKS |
 | [requirements.md](./requirements.md) | Original extraction task |
 
-## PoC
+## Clients
 
-Scan / connect / ECDH confer: [`../poc/`](../poc/)
+| Client | Path | Notes |
+|--------|------|--------|
+| Python PoC | [`../poc/`](../poc/) | Scan / connect / confer / telemetry CLI |
+| Web Bluetooth | [`../web/`](../web/) | Chrome/Edge; https://t-rex-xp.github.io/Anker-BLE/ |
+| Home Assistant | [`../custom_components/anker_ble/`](../custom_components/anker_ble/) | HACS integration + Lovelace card |
 
-## Web Bluetooth
+## Images
 
-Browser client (Chrome/Edge): [`../web/`](../web/)
+Central artwork: [`../assets/images/`](../assets/images/) — sync with `python3 scripts/sync_images.py`.
 
-```bash
-cd /opt/anker/web && python3 -m http.server 8765 --bind 127.0.0.1
-# open http://127.0.0.1:8765/
-```
-
-## Home Assistant
-
-Custom integration (HACS-ready): [`../custom_components/anker_ble/`](../custom_components/anker_ble/)
-
-```text
-HACS → Custom repositories → <github-repo-url> → Integration
-```
-
-Or:
+## Quick links
 
 ```bash
-cp -a /opt/anker/custom_components/anker_ble /config/custom_components/
-# restart HA → Add integration → Anker BLE
+# Web (local)
+cd web && ./serve.sh   # http://127.0.0.1:8765/
+
+# HA (manual)
+cp -a custom_components/anker_ble /config/custom_components/
+# restart → Add integration → Anker BLE
 ```
+
+HACS: **Integrations → Custom repositories** → this GitHub repo → category **Integration**.

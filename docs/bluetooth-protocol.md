@@ -33,10 +33,12 @@ Two related stacks coexist:
 
 | Stack | Role in app | Notes |
 |-------|-------------|--------|
-| **ZX / FF09** | Solix / PPS / Solarbank-style power products | Magic `0xFF09`, ECDH + AES-CBC session, TLV payloads |
+| **ZX / FF09** | Solix / PPS / Solarbank **and** Prime chargers (e.g. **A2687** 160W) | Magic `0xFF09`, ECDH + AES-CBC session, TLV payloads |
 | **Legacy / “Old Anker”** | Older chargers / accessory paths | `OldAnkerCmdService`, `PPSDeviceCommands`, AES key exchange APIs |
 | **HES / A5101 opcodes** | Home energy system | Dedicated `ZXOpcode` / `zx_opcode_0gmex01`, `0x0f`, `0x12` |
-| **React Native bridge** | Some MagGo / small-charging UI | `akiot.device.*` / `akiot.pairing.*` — BLE bind via native, not full wire codec in JS |
+| **React Native bridge** | MagGo / Prime accessory UI (A110x, A2687, A1903, …) | `akiot.device.*` / `akiot.pairing.*` — BLE bind via native; wire codec in Flutter/native |
+
+Verified live: **A2687** Prime Charger 160W (serial `ASHD…`, GATT `8C85`). See [bluetooth-devices.md](./bluetooth-devices.md).
 
 ---
 

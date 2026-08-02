@@ -1,7 +1,9 @@
 # Anker BLE — Web Bluetooth client
 
-Browser client with the same MagGo-style device widget as the Home Assistant card:
-product art, total power, pad 1–3, online / charging / battery chips, identity.
+Browser client with the same device widget as the Home Assistant card: product art,
+total power, **Port 1–3**, online / charging / battery chips, identity.
+
+Aimed at chargers such as the **Anker Prime Charger 160W (A2687)** as well as MagGo / Solix FF09 devices.
 
 ## Hosted (GitHub Pages)
 
@@ -34,9 +36,9 @@ Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/)
 
 | Feature | Notes |
 |---------|--------|
-| Product hero image | From Anker app assets (`images/`), keyed by serial / product |
+| Product hero image | Synced from `assets/images/product/` (A2687, A110x, Solix, …) |
 | Power out | Large watt readout |
-| Pad 1–3 | MagGo pad power |
+| Port 1–3 | USB-C / output power from TLV |
 | Status chips | Online, charging, battery %, session |
 | Identity | Product, firmware, serial, MAC |
 | Refresh telemetry | Re-sends subscribe `0x4200` |
@@ -55,7 +57,7 @@ Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/)
 | `images/` | **Synced** from `assets/images/product/` — do not edit by hand |
 | `serve.bat` / `serve.sh` | Local static server |
 
-After changing artwork:
+After changing artwork in the repo root:
 
 ```bash
 python3 scripts/sync_images.py

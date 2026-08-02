@@ -143,17 +143,17 @@ More: [web/README.md](web/README.md)
 2. Commit, then tag and push:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
 The [Release](.github/workflows/release.yml) workflow will:
 
-- Run hassfest + HACS validation
+- Sync images from `assets/` and run hassfest + HACS validation
 - Attach `anker_ble-<ver>.zip` and `anker-ble-web-<ver>.zip` to a GitHub Release
-- Deploy [`web/index.html`](web/index.html) to GitHub Pages
+- Deploy the web client (with synced images) to GitHub Pages
 
-Manual Pages-only deploy: **Actions → Release → Run workflow** (leave tag empty), or push to `main`/`master` changing `web/` ([Pages](.github/workflows/pages.yml)).
+Manual Pages-only deploy: **Actions → Release → Run workflow** (leave tag empty), or push to `main`/`master` changing `web/` or `assets/` ([Pages](.github/workflows/pages.yml)).
 
 ---
 
@@ -163,9 +163,10 @@ Manual Pages-only deploy: **Actions → Release → Run workflow** (leave tag em
 |-----|----------|
 | [docs/bluetooth-protocol.md](docs/bluetooth-protocol.md) | Frame format, confer, crypto, TLV |
 | [docs/bluetooth-gatt-uuids.md](docs/bluetooth-gatt-uuids.md) | Discovery & GATT UUIDs |
-| [docs/bluetooth-devices.md](docs/bluetooth-devices.md) | SKU → BLE modules |
+| [docs/bluetooth-devices.md](docs/bluetooth-devices.md) | Device catalog (A2687, banks, Solix, …) |
 | [docs/bluetooth-source-map.md](docs/bluetooth-source-map.md) | Where symbols live in the APKS |
 | [docs/README.md](docs/README.md) | Docs overview |
+| [assets/README.md](assets/README.md) | Central images + sync |
 
 ## Disclaimer
 
