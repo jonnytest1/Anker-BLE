@@ -1,0 +1,12 @@
+refresh:
+  name: Refresh device
+  description: Force an immediate Bluetooth poll for the Anker BLE device linked to the given entity.
+  fields:
+    entity_id:
+      name: Entity
+      description: Any entity from the Anker BLE device (prefer Power out).
+      required: true
+      selector:
+        entity:
+          filter:
+            - integration: anker_ble

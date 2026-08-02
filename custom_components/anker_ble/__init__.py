@@ -12,6 +12,7 @@ from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .coordinator import AnkerBleCoordinator
 from .frontend import async_setup_frontend
+from .services import async_setup_services, async_unload_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ PLATFORMS: list[Platform] = [
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up shared frontend assets once."""
     await async_setup_frontend(hass)
+    async_setup_services(hass)
     return True
 
 
@@ -37,6 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     in “Initializing” while the charger is offline / held by the phone app.
     """
     await async_setup_frontend(hass)
+    async_setup_services(hass)
 
     coordinator = AnkerBleCoordinator(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
@@ -57,6 +60,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
+        async_unload_services(hass)
     return unload_ok
 
 

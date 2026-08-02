@@ -3,7 +3,7 @@
  * Art: /anker_ble_static/images/
  */
 (() => {
-  const CARD_VERSION = "0.2.9";
+  const CARD_VERSION = "0.2.10";
   const DEMO_ENTITY = "sensor.anker_ble_demo_power_out";
   const DEMO = {
     name: "Prime Charger 160W",
@@ -385,12 +385,16 @@
           color: var(--primary-color);
         }
         button.refresh:disabled {
-          opacity: .55;
-          cursor: default;
+          opacity: .7;
+          cursor: wait;
         }
         button.refresh:disabled:hover {
           border-color: var(--divider-color);
           color: var(--primary-text-color);
+        }
+        button.refresh.busy {
+          border-color: var(--primary-color);
+          color: var(--primary-color);
         }
       `;
     }
@@ -503,28 +507,66 @@
         </div>
         <div class="foot">
           <span>${this._esc(foot)}</span>
-          <button class="refresh" type="button"${demo ? " disabled" : ""}>Refresh</button>
+          <button class="refresh${this._refreshing ? " busy" : ""}" type="button"${
+            demo || this._refreshing ? " disabled" : ""
+          }>${this._refreshing ? "Refreshing…" : "Refresh"}</button>
         </div>
       </ha-card>
     `;
 
-      this.shadowRoot.querySelector("button.refresh")?.addEventListener("click", (ev) => {
+      const refreshBtn = this.shadowRoot.querySelector("button.refresh");
+      refreshBtn?.addEventListener("click", (ev) => {
+        ev.preventDefault();
         ev.stopPropagation();
-        if (demo || !this._hass) return;
-        const targets = [powerId, rawEntity, ...padIds].filter(Boolean);
-        if (!targets.length) return;
-        this._hass.callService("homeassistant", "update_entity", {
-          entity_id: targets,
-        });
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        this._requestRefresh(powerId || rawEntity, demo);
       });
 
       this.shadowRoot.querySelector("ha-card")?.addEventListener("click", (ev) => {
         if (ev.target.closest("button")) return;
         if (demo) return;
-        const event = new Event("hass-more-info", { bubbles: true, composed: true });
-        event.detail = { entityId: powerId || rawEntity };
+        const entityId = powerId || rawEntity;
+        if (!entityId) return;
+        const event = new CustomEvent("hass-more-info", {
+          bubbles: true,
+          composed: true,
+          detail: { entityId },
+        });
         this.dispatchEvent(event);
       });
+    }
+
+    _requestRefresh(entityId, demo) {
+      if (demo || !this._hass || !entityId || this._refreshing) return;
+      this._refreshing = true;
+      this._render();
+
+      const finish = () => {
+        this._refreshing = false;
+        this._render();
+      };
+
+      let result;
+      try {
+        // Dedicated service forces a BLE poll (update_entity is a no-op for many coordinator entities).
+        result = this._hass.callService("anker_ble", "refresh", {
+          entity_id: entityId,
+        });
+      } catch (err) {
+        console.warn("Anker BLE refresh service call failed", err);
+        result = this._hass.callService("homeassistant", "update_entity", {
+          entity_id: entityId,
+        });
+      }
+
+      Promise.resolve(result)
+        .catch((err) => {
+          console.warn("Anker BLE refresh failed, falling back to update_entity", err);
+          return this._hass.callService("homeassistant", "update_entity", {
+            entity_id: entityId,
+          });
+        })
+        .finally(finish);
     }
 
     _esc(s) {
