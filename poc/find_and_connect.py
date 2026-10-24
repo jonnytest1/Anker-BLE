@@ -67,7 +67,8 @@ async def cmd_connect(args: argparse.Namespace) -> int:
             logging.getLogger(__name__).warning(
                 "address %s not in scan results — connecting directly", args.address
             )
-            client = AnkerBleClient(args.address, family=args.family, adapter=args.adapter)
+            client = AnkerBleClient(
+                args.address, family=args.family, adapter=args.adapter)
             return await _run_session(client, args)
     elif args.first:
         if not devices:
@@ -83,7 +84,8 @@ async def cmd_connect(args: argparse.Namespace) -> int:
         return 2
 
     assert target is not None
-    client = AnkerBleClient(target, family=args.family or target.family, adapter=args.adapter)
+    client = AnkerBleClient(
+        target, family=args.family or target.family, adapter=args.adapter)
     return await _run_session(client, args)
 
 
@@ -105,13 +107,17 @@ async def _run_session(client: AnkerBleClient, args: argparse.Namespace) -> int:
             ok = await client.start_confer(timeout=args.confer_timeout)
             print("Confer:", "SUCCESS" if ok else "FAILED")
             if ok and args.listen > 0:
+                await client.subscribe_telemetry()
                 print(f"Listening {args.listen:.0f}s for telemetry…")
                 packets = await client.listen(args.listen)
                 print(f"Received {len(packets)} notification(s)")
                 for pkt in packets[:20]:
                     print(f"  {pkt.hex()}")
+
         elif args.listen > 0:
             print(f"\nSubscribing and listening {args.listen:.0f}s…")
+
+            await client.subscribe_telemetry()
             packets = await client.listen(args.listen)
             print(f"Received {len(packets)} notification(s)")
             for pkt in packets[:20]:
@@ -145,10 +151,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     conn = sub.add_parser("connect", help="Scan, then connect to a device")
     add_common(conn)
-    conn.add_argument("--timeout", type=float, default=8.0, help="Scan duration")
+    conn.add_argument("--timeout", type=float,
+                      default=8.0, help="Scan duration")
     conn.add_argument("--connect-timeout", type=float, default=20.0)
     conn.add_argument("--address", help="Device MAC address")
-    conn.add_argument("--first", action="store_true", help="Connect to strongest match")
+    conn.add_argument("--first", action="store_true",
+                      help="Connect to strongest match")
     conn.add_argument("--index", type=int, help="Connect to Nth scan result")
     conn.add_argument("--family", choices=["8C85", "2215", "2540", "4158"])
     conn.add_argument(
@@ -169,6 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=2.0,
         help="Seconds to stay connected when not listening/conferring",
     )
+
     conn.set_defaults(func=cmd_connect)
 
     return p

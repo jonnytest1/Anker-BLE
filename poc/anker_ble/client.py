@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import logging
 import time
 from collections.abc import Callable
@@ -122,6 +123,7 @@ class AnkerBleClient:
         self.identity = DeviceIdentity()
         self.telemetry: dict[str, bytes] = {}
         self.telemetry_cmd: str | None = None
+        self.telemetry_map = {}
 
     @property
     def connected(self) -> bool:
@@ -228,7 +230,7 @@ class AnkerBleClient:
         if not packet.startswith(b"\xff\x09"):
             return
         try:
-            frame = split_frame(packet)
+            frame: Frame = split_frame(packet)
         except Exception:
             log.exception("failed to parse FF09 notification")
             return
@@ -257,14 +259,25 @@ class AnkerBleClient:
         for body in candidates:
             try:
                 plain = self.decrypt(body)
-                params = parse_tlv(plain)
+                params: dict[str, bytes] = parse_tlv(plain)
                 self.telemetry = params
                 self.telemetry_cmd = cmd
                 log.info("telemetry cmd=%s tlv=%s", cmd, tlv_to_str(params))
+                try:
+
+                    from .telemetry import parse_telemetry_fixed
+                    telemetry = parse_telemetry_fixed(params)
+                    if cmd == '4300':
+                        print(datetime.now())
+                        print(telemetry)
+                    self.telemetry_map[frame] = telemetry
+                except Exception:
+                    pass
                 return
             except Exception:
                 continue
-        log.debug("could not decrypt session frame cmd=%s len=%d", cmd, len(payload))
+        log.debug("could not decrypt session frame cmd=%s len=%d",
+                  cmd, len(payload))
 
     async def write_raw(self, data: bytes, response: bool = False) -> None:
         assert self._client and self.write_uuid
@@ -274,12 +287,14 @@ class AnkerBleClient:
     def _complete_ecdh(self, payload: bytes) -> None:
         params = parse_tlv(payload)
         if "a1" not in params:
-            log.warning("ECDH stage missing a1 public key: %s", tlv_to_str(params))
+            log.warning("ECDH stage missing a1 public key: %s",
+                        tlv_to_str(params))
             return
         device_pub = b"\x04" + params["a1"]
         private_value = int(PRIVATE_KEY_HEX, 16)
         private_key = derive_private_key(private_value, SECP256R1())
-        public_key = EllipticCurvePublicKey.from_encoded_point(SECP256R1(), device_pub)
+        public_key = EllipticCurvePublicKey.from_encoded_point(
+            SECP256R1(), device_pub)
         self._shared_secret = private_key.exchange(ECDH(), public_key)
         log.info(
             "ECDH ok  key=%s…  iv=%s…",
@@ -377,7 +392,8 @@ class AnkerBleClient:
         data = payload
         # CBC length trick: if len % 16 == 15, prepend is handled by caller sometimes
         if len(data) % 16 != 0:
-            raise ValueError(f"ciphertext length {len(data)} not multiple of 16")
+            raise ValueError(
+                f"ciphertext length {len(data)} not multiple of 16")
         cipher = AES.new(
             self._shared_secret[:16], AES.MODE_CBC, iv=self._shared_secret[16:]
         )

@@ -3,3 +3,5 @@ poc/.venv/*
 __pycache__/
 *.pyc
 .pytest_cache/
+/poc/query.sh
+/poc/.vscode/launch.json

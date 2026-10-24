@@ -27,7 +27,9 @@ class Frame:
         if len(self.cmd) != 2:
             raise ValueError("cmd must be 2 bytes")
         length = 2 + 2 + 3 + 2 + len(self.payload) + 1
-        packet = HEADER + length.to_bytes(2, "little") + self.pattern + self.cmd + self.payload
+        packet = HEADER + \
+            length.to_bytes(2, "little") + self.pattern + \
+            self.cmd + self.payload
         return packet + xor_checksum(packet)
 
 
@@ -38,7 +40,8 @@ def split_frame(packet: bytes) -> Frame:
         raise ValueError(f"bad header: {packet[:2].hex()}")
     length = int.from_bytes(packet[2:4], "little")
     if length != len(packet):
-        raise ValueError(f"length mismatch: encoded={length} actual={len(packet)}")
+        raise ValueError(
+            f"length mismatch: encoded={length} actual={len(packet)}")
     if packet[-1:] != xor_checksum(packet[:-1]):
         raise ValueError("checksum mismatch")
     return Frame(pattern=packet[4:7], cmd=packet[7:9], payload=packet[9:-1])
